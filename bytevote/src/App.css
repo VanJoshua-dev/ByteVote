@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+@font-face {
+    font-family: code_pro;
+    src: url('./assets/fonts/CodecPro-Regular.ttf');
+}
+/* for images styl */
+h2{
+    font-family: "Anton", serif;
+  font-weight: 400;
+  font-style: normal;
+  color: #4b548b;
+}
+h1{
+    font-family: "Anton", serif;
+  font-weight: 400;
+  font-style: normal;
+  color: #4b548b;
+  
+}
+*{
+    transition: 0.3s ease-in-out;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+}
+/* landingPage */
+
+.ladingPageContainer{
+    background-image: url('./assets/byte-background.png');
+    background-repeat: no-repeat;
+    background-size: cover;
+}
