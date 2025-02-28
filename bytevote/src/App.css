@@ -4,6 +4,11 @@
     font-family: code_pro;
     src: url('./assets/fonts/CodecPro-Regular.ttf');
 }
+body{
+  background-image: url("./assets/byte-background.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+}
 /* for images styl */
 h2{
     font-family: "Anton", serif;
@@ -29,4 +34,20 @@ h1{
     background-image: url('./assets/byte-background.png');
     background-repeat: no-repeat;
     background-size: cover;
+}
+
+/* 404 not found */
+.notFoundContainer{
+  background-image: url("./assets/byte-background.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* voters tab */
+.votersContainer{
+
+}
+
+.sideBar{
+  height: 100%;
 }
