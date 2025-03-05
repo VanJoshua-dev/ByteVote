@@ -88,21 +88,6 @@ app.post('/election', (req, res) => {
     });
 });
 
-// 📊 Get Voting Results
-// app.get('/votes', verifyToken, isAdmin, (req, res) => {
-//     const sql = `
-//     SELECT candidates.name, COUNT(votes.candidate_id) AS vote_count
-//     FROM candidates
-//     LEFT JOIN votes ON candidates.id = votes.candidate_id
-//     GROUP BY candidates.id
-//     ORDER BY vote_count DESC
-//   `;
-//     db.query(sql, (err, result) => {
-//         if (err) return res.status(500).json({ error: err.message });
-//         res.json(result);
-//     });
-// });
-
 // fetch dashboard
 app.get('/adminDashboard', verifyToken, isAdmin, (req, res) => {
     const { data } = req.query;
@@ -152,7 +137,7 @@ app.get('/getVoters', verifyToken, isAdmin, (req, res) => {
 
 
 
-
+//Add voter
 app.post("/addVoter", verifyToken, isAdmin, async (req, res) => {
     const { firstname, lastname, LRN, gender, username, password } = req.body;
 
@@ -193,7 +178,66 @@ app.post("/addVoter", verifyToken, isAdmin, async (req, res) => {
       }
 });
 
+app.patch('/editVoter', verifyToken, isAdmin, async (req, res) => {
+    const { voter_id, new_Firstname, new_Lastname, newLRN, newGender, newUsername, newPassword } = req.body;
 
+    if (!voter_id || !new_Firstname || !new_Lastname || !newLRN || !newGender || !newUsername) {
+        return res.status(400).json({ message: "All fields are required" });
+    }
+
+    try {
+        let updateSql;
+        let values;
+
+        if (!newPassword) {
+            updateSql = `UPDATE voters SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ? WHERE voter_id = ?`;
+            values = [new_Firstname, new_Lastname, newLRN, newGender, newUsername, voter_id];
+        } else {
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            updateSql = `UPDATE voters SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ?, password = ? WHERE voter_id = ?`;
+            values = [new_Firstname, new_Lastname, newLRN, newGender, newUsername, hashedPassword, voter_id];
+        }
+
+        db.query(updateSql, values, (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Voter updated successfully", result });
+        });
+    } catch (e) {
+        console.error("Error:", e);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+//delete voters
+
+app.delete('/deleteVoter', verifyToken, isAdmin, async (req, res) => {
+    const { voterID } = req.body;
+
+    if (!voterID) {
+        return res.status(400).json({ message: "Voter ID is required" });
+    }
+
+    try {
+        const deleteSql = "DELETE FROM voters WHERE voter_id =?";
+        db.query(deleteSql, [voterID], (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Voter deleted successfully" });
+        });
+    } catch (e) {
+        console.error("Error:", e);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+//fetch position 
+
+app.get('/getPositions', verifyToken, isAdmin, (req, res) => {
+    const sql = 'SELECT * FROM positions';
+    db.query(sql, (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(result);
+    });
+});
 // fetch voters voted
 app.get('/candidates', verifyToken, isAdmin, (req, res) => {
     const sql = 'SELECT * FROM candidates';

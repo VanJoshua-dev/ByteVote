@@ -8,6 +8,8 @@ import clsx from "clsx";
 import { BsExclamationCircle } from "react-icons/bs";
 import Image from "../assets/userprofile/default_profile-m1.jpg";
 import axios from "axios";
+import { FaCircleCheck } from "react-icons/fa6";
+import { BsExclamationCircleFill } from "react-icons/bs";
 function VoterTable(getToken) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState();
@@ -15,6 +17,11 @@ function VoterTable(getToken) {
   const handleTogglePassword = () => {
     setShowPassword((prev) => !prev);
   };
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editFailed, setEditFailed] = useState(false);
+
+  const [delSuccess, setDelSuccess] = useState(false);
+  const [delFailed, setDelFailed] = useState(false);
 
   const [formData, setFormData] = useState({
     firstname: "",
@@ -33,29 +40,29 @@ function VoterTable(getToken) {
   const [deleteVoter, setDeleteVoter] = useState(null); //handle delete voter
 
   const [search, setSearch] = useState(""); // Search query state
-  const [filteredVoters, setFilteredVoters] = useState([])
+  const [filteredVoters, setFilteredVoters] = useState([]);
   useEffect(() => {
     const fetchVoters = async () => {
       try {
         const token = getToken.token; // Retrieve token
         console.log("Token: " + token);
-        
+
         const response = await axios.get("http://localhost:5000/getVoters", {
           headers: { Authorization: `Bearer ${token}` },
         });
-  
+
         setVoters(response.data || []);
         setFilteredVoters(response.data || []); // Set filtered voters initially
       } catch (err) {
         setError(err.response ? err.response.data : err.message);
       }
     };
-  
+
     fetchVoters();
     const interval = setInterval(fetchVoters, 5000);
     return () => clearInterval(interval);
   }, []);
-  
+
   useEffect(() => {
     // Filter voters based on search input
     const results = voters.filter((voter) =>
@@ -72,7 +79,7 @@ function VoterTable(getToken) {
   };
   const handleSubmit = async (e) => {
     e.preventDefault(); // Prevent default form submission
-  
+
     try {
       const token = getToken.token; // Get token for authentication
       const response = await axios.post(
@@ -85,10 +92,10 @@ function VoterTable(getToken) {
           },
         }
       );
-  
+
       console.log("Voter added successfully:", response.data);
       alert("Voter added successfully!");
-  
+
       // Clear form fields after submission
       setFormData({
         firstname: "",
@@ -98,15 +105,157 @@ function VoterTable(getToken) {
         username: "",
         password: "",
       });
-  
+
       setShowModal(false); // Close modal after successful submission
     } catch (error) {
       console.error("Error adding voter:", error);
       alert("Failed to add voter.");
     }
   };
+  const handleEdit = async (e) => {
+    e.preventDefault(); // Prevent form from refreshing the page
+
+    try {
+      const token = getToken.token; // Get token for authentication
+      const response = await axios.patch(
+        "http://localhost:5000/editVoter",
+        {
+          voter_id: editVoter.voter_id, // Ensure voter_id is included
+          new_Firstname: editVoter.firstname,
+          new_Lastname: editVoter.lastname,
+          newLRN: editVoter.lrn,
+          newGender: editVoter.gender,
+          newUsername: editVoter.username,
+          newPassword: editVoter.password || undefined, // Optional password update
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setEditModal(false);
+      // Close modal after success
+      setInterval(() => {
+        setEditSuccess(false);
+      }, 2000);
+      setEditSuccess(true); // Show success message after successful submission
+    } catch (error) {
+      setInterval(() => {
+        setEditFailed(false);
+      }, 2000);
+      setEditFailed(true);
+      console.error(
+        "Error updating voter:",
+        error.response?.data || error.message
+      );
+    }
+  };
+
+  const handleDelete = async (e) => {
+    e.preventDefault();
+    try {
+      const token = getToken.token; // Ensure this correctly fetches the token
+  
+      const response = await axios.delete("http://localhost:5000/deleteVoter", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        data: { voterID: deleteVoter.voter_id }, // ✅ Include data inside "data" field
+      })
+      setDeleteModal(false);
+      setInterval(() => {
+        setDelSuccess(false);
+      }, 2000)
+      setDelSuccess(true); 
+    } catch (error) {
+        setInterval(() => {
+            setDelFailed(false);
+          }, 2000)
+          setDelFailed(true);
+      console.error("Error deleting voter:", error.response?.data || error.message);
+    }
+  };
   return (
     <div className=" h-139">
+      {/* Success modal */}
+      <div
+        className={clsx(
+          "w-50 d-flex justify-center item-center fixed bottom-0 right-3",
+          { "right-[-300px]": !editSuccess }
+        )}
+      >
+        <div
+          id="alert-1"
+          className="flex items-center p-4 mb-4 text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400"
+          role="alert"
+        >
+          <FaCircleCheck size={20} />
+          <h3 className="text-center flex justify-center items-center gap pl-1">
+            {" "}
+            Update Successfully
+          </h3>
+        </div>
+      </div>
+      {/* failed modal */}
+      <div
+        className={clsx(
+          "w-50 d-flex justify-center item-center fixed bottom-0 right-3",
+          { "right-[-300px]": !editFailed }
+        )}
+      >
+        <div
+          id="alert-1"
+          className="flex items-center p-4 mb-4 text-red-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-red-400"
+          role="alert"
+        >
+          <BsExclamationCircleFill size={20} />
+          <h3 className="text-center flex justify-center items-center gap pl-1">
+            {" "}
+            Update Failed
+          </h3>
+        </div>
+      </div>
+      {/* Delete Success */}
+      <div
+        className={clsx(
+          "w-50 d-flex justify-center item-center fixed bottom-0 right-3",
+          { "right-[-300px]": !delSuccess }
+        )}
+      >
+        <div
+          id="alert-1"
+          className="flex items-center p-4 mb-4 text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:green-red-400"
+          role="alert"
+        >
+          <FaCircleCheck size={20} />
+          <h3 className="text-center flex justify-center items-center gap pl-1">
+            {" "}
+            Voter has been deleted
+          </h3>
+        </div>
+      </div>
+      {/* Delete Failed */}
+      <div
+        className={clsx(
+          "w-50 d-flex justify-center item-center fixed bottom-0 right-3",
+          { "right-[-300px]": !delFailed }
+        )}
+      >
+        <div
+          id="alert-1"
+          className="flex items-center p-4 mb-4 text-red-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-red-400"
+          role="alert"
+        >
+          <BsExclamationCircleFill size={20} />
+          <h3 className="text-center flex justify-center items-center gap pl-1">
+            {" "}
+            Voter delition failed
+          </h3>
+        </div>
+      </div>
       {/* Add Modal */}
       <div
         className={clsx(
@@ -267,8 +416,14 @@ function VoterTable(getToken) {
         )}
       >
         <h1 className="text-3xl mb-3 pb-1 border-b-4 w-50">Edit voter</h1>
-        <form action="">
+        <form onSubmit={handleEdit}>
           <div className="flex gap-2">
+            <input
+              type="hidden"
+              id="voter_ID"
+              name="voter_id"
+              value={editVoter?.voter_id || ""}
+            />
             <div>
               <label
                 htmlFor="firstname"
@@ -428,14 +583,11 @@ function VoterTable(getToken) {
       >
         <BsExclamationCircle size={50} color="red" />
         <h3>Are you sure you want continue?</h3>
-        <form action="">
+        <form onSubmit={handleDelete}>
           <input
-            type="number"
+            type="hidden"
             name="voterID"
             value={deleteVoter?.voter_id || ""}
-            onChange={(e) =>
-              setEditVoter({ ...deleteVoter, voter_id: e.target.value })
-            }
             id="voterID"
           />
           <div className="mt-5">

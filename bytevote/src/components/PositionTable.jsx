@@ -15,6 +15,11 @@ function Positiontable() {
         const [showModal, setShowModal] = useState(false);//handle add modal
         const [editModal, setEditModal] = useState(false);//handle edit modal
         const [deleteModal, setDeleteModal] = useState(false);//handle delete modal
+
+        const data = [
+
+            
+        ]
   return (
     <div className=" h-auto">
            {/* Add Modal */}
