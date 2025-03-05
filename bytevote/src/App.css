@@ -1,53 +1,57 @@
 @import "tailwindcss";
-
+@import "flowbite/src/themes/default";
+@plugin "flowbite/plugin";
+@source "../node_modules/flowbite";
 @font-face {
-    font-family: code_pro;
-    src: url('./assets/fonts/CodecPro-Regular.ttf');
+  font-family: code_pro;
+  src: url("./assets/fonts/CodecPro-Regular.ttf");
 }
-body{
+body {
+  background-image: url("./assets/byte-background.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  /* overflow: hidden; */
+}
+/* for images styl */
+h2 {
+  font-family: "Anton", serif;
+  font-weight: 400;
+  font-style: normal;
+  color: #4b548b;
+}
+h1 {
+  font-family: "Anton", serif;
+  font-weight: 400;
+  font-style: normal;
+  color: #4b548b;
+}
+* {
+  transition: 0.3s ease-in-out;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+/* landingPage */
+
+.ladingPageContainer {
   background-image: url("./assets/byte-background.png");
   background-repeat: no-repeat;
   background-size: cover;
 }
-/* for images styl */
-h2{
-    font-family: "Anton", serif;
-  font-weight: 400;
-  font-style: normal;
-  color: #4b548b;
-}
-h1{
-    font-family: "Anton", serif;
-  font-weight: 400;
-  font-style: normal;
-  color: #4b548b;
-  
-}
-*{
-    transition: 0.3s ease-in-out;
-    scrollbar-width: none;
-    scroll-behavior: smooth;
-}
-/* landingPage */
-
-.ladingPageContainer{
-    background-image: url('./assets/byte-background.png');
-    background-repeat: no-repeat;
-    background-size: cover;
-}
 
 /* 404 not found */
-.notFoundContainer{
+.notFoundContainer {
   background-image: url("./assets/byte-background.png");
   background-repeat: no-repeat;
   background-size: cover;
 }
 
 /* voters tab */
-.votersContainer{
-
+.votersContainer {
 }
 
-.sideBar{
-  height: 100%;
+/* header */
+.headerContainer {
+  box-shadow: 51px 7px 5px -1px rgba(255, 131, 8, 0.39);
+  -webkit-box-shadow: 51px 7px 5px -1px rgba(0, 0, 0, 0.39);
+  -moz-box-shadow: 51px 7px 5px -1px rgba(0, 0, 0, 0.39);
 }

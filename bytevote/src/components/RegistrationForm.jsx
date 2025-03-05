@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState} from "react";
 //dom routing
 import {
   BrowserRouter as Router,
@@ -7,7 +7,7 @@ import {
   Link,
   useLocation,
   BrowserRouter,
-  useNavigate
+  useNavigate,
 } from "react-router-dom";
 import LandingPageContent from "../components/LandingPageContent";
 import LoginForm from "../components/LoginForm";
@@ -16,9 +16,41 @@ import byteicon from "../assets/byte-icon.png";
 import loyolaLogo from "../assets/loyola-shs-logo.png";
 import ByteLogo from "../assets/Byte-net-logo.png";
 import trojanICT from "../assets/trojan-ICT.png";
-
+import Image1 from "../assets/userprofile/default_profile-f1.jpg";
+console.log(Image1);
 const RegistrationForm = () => {
-  const navigate = useNavigate();
+  const [firstname, setFirstname] = useState("");
+  const [lastname, setLastname] = useState("");
+  const [lrn, setLrn] = useState("");
+  const [gender, setGender] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate(); // Redirect function
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch("http://localhost:5000/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstname, lastname, lrn, gender, username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "Registration failed");
+      } else {
+        alert("Registration successful!");
+        setInterval(() => {
+          navigate("/login");
+        }, 1000)
+      }
+    } catch (error) {
+      alert("Something went wrong. Please try again." + error);
+    }
+  };
   return (
     <div className="ladingPageContainer grid  grid-cols-5 grid-rows-5 gap-1 h-screen">
       <div className="imagesContainer col-span-5 flex p-4 h-24 justify-between">
@@ -29,7 +61,7 @@ const RegistrationForm = () => {
             className="h-10 md:h-20 sm:h-16 lg:h-20 2x1:h-20"
           />
         </div>
-
+        <img src="../assets/userprofile/default_profile.jpg" alt="" />
         <div className="gap-1 ">
           <div className="flex gap-1">
             <img
@@ -57,16 +89,18 @@ const RegistrationForm = () => {
             <h2 className="text-3xl font-extrabold text-center mb-6">
               BYTEVote Register
             </h2>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleRegister}>
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-600">
                   Firstname
                 </label>
                 <input
                   type="text"
-                  name="username"
+                  name="firstname"
+                  value={firstname}
+                  onChange={(e) => setFirstname(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your username"
+                  placeholder="Enter your firstname"
                 />
               </div>
               <div>
@@ -74,10 +108,12 @@ const RegistrationForm = () => {
                   Lastname
                 </label>
                 <input
-                  type="password"
-                  name="password"
+                  type="lastname"
+                  name="lastname"
+                  value={lastname}
+                  onChange={(e) => setLastname(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your password"
+                  placeholder="Enter your Last Name"
                 />
               </div>
 
@@ -86,8 +122,10 @@ const RegistrationForm = () => {
                   LRN
                 </label>
                 <input
-                  type="text"
-                  name="gender"
+                  type="number"
+                  name="lrn"
+                  value={lrn}
+                  onChange={(e) => setLrn(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter your LRN"
                 />
@@ -97,15 +135,18 @@ const RegistrationForm = () => {
                   Gender
                 </label>
                 <select
-                  id="countries"
+                  id="gender"
+                  name="gender"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option disabled selected>
+                  <option disabled value="">
                     -- Select a gender --
                   </option>
-                  <option value="US">Male</option>
-                  <option value="CA">Female</option>
-                  <option value="FR">Prefere not to say</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Prefere not to say</option>
                 </select>
               </div>
               <div>
@@ -114,7 +155,10 @@ const RegistrationForm = () => {
                 </label>
                 <input
                   type="text"
-                  name="pref-username"
+                  id="prefUsername"
+                  name="prefUsername"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter your prefered username"
                 />
@@ -125,7 +169,10 @@ const RegistrationForm = () => {
                 </label>
                 <input
                   type="text"
-                  name="pref-password"
+                  id="prefPassword"
+                  name="prefPassword"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter your prefered password"
                 />

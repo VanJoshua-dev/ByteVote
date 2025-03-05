@@ -17,6 +17,11 @@ import RegistrationForm from './components/RegistrationForm';
 import Candidates from './components/Candidates';
 import ElectionHistory from './components/ElectionHistory';
 import CreateElection from './components/CreateElection';
+import UserProfile from './components/UserProfile';
+import Home from './pages/Home';
+import ElectionPage from './components/ElectionPage';
+import Unautorized from './components/Unauthorized';
+import Middleware from './components/Middleware';
 function App() {
   
   return (
@@ -29,18 +34,66 @@ function App() {
         {/* Sign page */}
         <Route path="/signup" element={<RegistrationForm />} />
         {/* Admin DashBoard page */}
-        <Route path="/dashboard" element={<DashBoard />} />
+        <Route path="/adminDashboard" element={
+          <Middleware requiredRole={"admin"}>
+              <DashBoard />
+          </Middleware>
+        } />
         {/* Votes page */}
-        <Route path="/votes" element={<Votes />} />
+        <Route path="/votes" element={ 
+          <Middleware requiredRole={"admin"}>
+              <Votes />
+          </Middleware>
+        } />
         {/* Voters page */}
-        <Route path="/voters" element={<Voters />} />
+        <Route path="/voters" element={
+          <Middleware requiredRole={"admin"}>
+              <Voters />
+          </Middleware>
+        } />
+        {/* Candidates page */}
+        <Route path="/candidates" element={
+          <Middleware requiredRole={"admin"}>
+              <Candidates />
+          </Middleware>
+        } />
         {/* Position page */}
-        <Route path="/candidates" element={<Candidates />} />
-        <Route path="/positions" element={<Position />} />
-        <Route path="/history" element={<ElectionHistory />} />
-        <Route path="/create" element={<CreateElection />} />
-        <Route path="/stats" element={<Stats />} />
+        <Route path="/positions" element={
+          <Middleware requiredRole={"admin"}>
+              <Position />
+          </Middleware>
+        } />
+        {/* Election History page */}
+        <Route path="/history" element={
+          <Middleware requiredRole={"admin"}>
+              <ElectionHistory />
+          </Middleware>
+        } />
+        {/* Create Election page */}
+        <Route path="/create" element={
+          <Middleware requiredRole={"admin"}>
+              <CreateElection />
+          </Middleware>
+        } />
+        {/* UserProfile page */}
+        <Route path="/profile" element={<UserProfile />} />
+
+        {/* Home page page */}
+        <Route path="/dashboard" element={
+          <Middleware requiredRole={"voter"}>
+              <Home />
+          </Middleware>
+        } />
+        {/* Election Page */}
+        <Route path="/election" element={
+          <Middleware requiredRole={"voter"}>
+              <ElectionPage />
+          </Middleware>
+        } />
+        {/* handle not existing page page */}
         <Route path="*" element={<NotFound />} />
+        {/* Unautorized access */}
+        <Route path="/unauthorized" element={<Unautorized />} />
       </Routes>
     </>
   )

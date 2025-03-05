@@ -1,6 +1,6 @@
-import React from "react";
+import React, {useState} from "react";
 //dom routing
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, BrowserRouter } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link, useLocation,useNavigate } from "react-router-dom";
 //images
 import byteicon from "../assets/byte-icon.png";
 import loyolaLogo from "../assets/loyola-shs-logo.png";
@@ -9,6 +9,49 @@ import trojanICT from "../assets/trojan-ICT.png";
 
 
 const LoginForm = () => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    try {
+      const response = await fetch("http://localhost:5000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Invalid login credentials");
+        return;
+      }
+
+      // Store user details
+      localStorage.setItem("user_id", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("user_name", data.user);
+      localStorage.setItem("avatar", data.avatar);
+      console.log(data);
+      alert("✅ Login successful!");
+
+      // Redirect based on role
+      if (data.role === "admin") {
+        navigate("/adminDashboard"); // Redirect to Admin Panel
+      } else {
+        navigate("/dashboard"); // Redirect to Voting Page
+      }
+    } catch (error) {
+      setError("Something went wrong. Please try again." + error);
+    }
+  };
+
+
   return (
     <div className="ladingPageContainer grid  grid-cols-5 grid-rows-5 gap-1 h-screen">
       <div className="imagesContainer col-span-5 flex p-4 h-24 justify-between">
@@ -34,12 +77,17 @@ const LoginForm = () => {
       <div className="min-h-screen flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg shadow-md w-80 mt-36 md:w-96 sm:w-96 lg:w-96 2xl:w-96">
         <h2 className="text-3xl font-extrabold text-center mb-6" >BYTEVote Login</h2>
-        <form className="space-y-4">
+
+        {error && <p className="text-red-500 text-center">{error}</p>}
+
+        <form className="space-y-4" onSubmit={handleLogin}>
           <div>
             <label className="block text-gray-600">Username</label>
             <input 
               type="text" 
-              name="username" 
+              name="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)} 
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
               placeholder="Enter your username" 
             />
@@ -48,7 +96,9 @@ const LoginForm = () => {
             <label className="block text-gray-600">Password</label>
             <input 
               type="password" 
-              name="password" 
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)} 
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
               placeholder="Enter your password" 
             />

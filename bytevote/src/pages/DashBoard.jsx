@@ -8,13 +8,22 @@ import Voters from "../components/Voters";
 import Position from "../components/Position";
 import Header from "../components/Header";
 function DashBoard() {
+  const userId = localStorage.getItem("user_id");
+  const role = localStorage.getItem("role");
+  const username = localStorage.getItem("user_name");
+  console.log(userId);
+  console.log(role);
+  console.log(username);
   return (
     <div className="">
-        <Header />
+      <div className="headerContainer p-2 bg-orange-400">
+        <Header username={username} role={role}/>
+      </div>
+
       <div className="dashboardContainer flex ">
         <SideBar />
-        <div className=" flex-1 p-5 ">
-          <Stats />
+        <div className=" flex-1 p-0 ">
+          <Stats token={userId}/>
         </div>
       </div>
     </div>
