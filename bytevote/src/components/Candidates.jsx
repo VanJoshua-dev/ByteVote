@@ -22,7 +22,7 @@ const Candidates = () => {
         <SideBar />
         <div className=" flex-1 pl-5 pr-5 ">
         <BreadCrumb items={[{ label: "Home", path: "/adminDashboard" }, { label: "Candidates" }]} />
-          <CandidateTable />
+          <CandidateTable token={userId}/>
         </div>
       </div>
     </div>

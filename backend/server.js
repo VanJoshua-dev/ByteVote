@@ -238,13 +238,86 @@ app.get('/getPositions', verifyToken, isAdmin, (req, res) => {
         res.json(result);
     });
 });
+//edit postion
+
+app.patch('/editPosition', verifyToken, isAdmin, async (req, res) => {
+    const { positionID, newPosName } = req.body;
+
+    if (!positionID || !newPosName) {
+        return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const sql = 'UPDATE positions SET position_name = ? WHERE position_id = ?';
+
+    db.query(sql, [newPosName, positionID], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Position not found" });
+        }
+
+        res.json({ message: "Position updated successfully", result });
+    });
+});
+
+//delete positions
+app.delete('/deletePosition', verifyToken, isAdmin, async (req, res) => {
+    const { positionID } = req.body;
+
+    if (!positionID) {
+        return res.status(400).json({ message: "Position ID is required" });
+    }
+
+    const sql = 'DELETE FROM positions WHERE position_id =?';
+
+    db.query(sql, [positionID], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Position not found" });
+        }
+
+        res.json({ message: "Position deleted successfully" });
+    });
+});
+
+//Add position 
+app.post("/addPosition", verifyToken, isAdmin, (req, res) => {
+    const { positionName } = req.body;
+    if (!positionName) {
+        return res.status(400).json({ message: "Position name is required" });
+    }
+
+    const sql = 'INSERT INTO positions (position_name) VALUES (?)';
+    db.query(sql, [positionName], (err, result) => {
+        if (err) {
+            if (err.code === 'ER_DUP_ENTRY') {
+                return res.status(400).json({ message: "Position already exists" });
+            }
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ message: "Position added successfully", id: result.insertId });
+    });
+});
+
+
+
 // fetch voters voted
-app.get('/candidates', verifyToken, isAdmin, (req, res) => {
-    const sql = 'SELECT * FROM candidates';
+app.get('/getCandidates', verifyToken, isAdmin, (req, res) => {
+    const sql = "SELECT c.candidate_id, c.firstname, c.lastname, c.gender, p.position_name AS position, c.credibility, c.platform FROM candidates c JOIN positions p ON c.position_id = p.position_id;";
     db.query(sql, (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(result);
     });
+});
+
+//add candidate
+app.post("/addCandidate", (req, res) => {
+    const { firstname, lastname, gender, position_id, credibility, platform } = req.body;
+    if (!firstname ||!lastname ||!gender ||!position_id ||!credibility ||!platform) {
+        return res.status(400).json({ message: "All fields are required" });
+    }
+    const sql = "INSERT INTO candidates (firstname, lastname, gender, position_id, credibility, platform) VALUES (?,?,?,?,?,?)";
 });
 
 // Fetch Votes (With Optional Search)
@@ -352,7 +425,7 @@ app.post('/login', (req, res) => {
             const token = jwt.sign(
                 { id: voter.voter_id, role: voter.role, user: voter.username, avatar: voter.avatar },
                 process.env.JWT_SECRET,
-                { expiresIn: "1h" }
+                { expiresIn: "5h" }
             );
 
             return res.json({ message: "✅ Voter login successful!", token, role: voter.role, user: voter.username, avatar: voter.avatar });
@@ -375,7 +448,7 @@ app.post('/login', (req, res) => {
                 const token = jwt.sign(
                     { id: admin.admin_id, role: admin.role, user: admin.username },
                     process.env.JWT_SECRET,
-                    { expiresIn: "1h" }
+                    { expiresIn: "5h" }
                 );
 
                 return res.json({ message: "✅ Admin login successful!", token, role: admin.role, user: admin.username });
