@@ -11,6 +11,7 @@ import axios from "axios";
 import VotesTally from './VotesTally';
 const Stats = (getToken) => {
   const navigate = useNavigate();
+  const token = getToken.token;
   //fetch data from server
   const [voters, setVoters] = useState(null);
   const [votes, setVoted] = useState(null);
@@ -149,7 +150,7 @@ if(error){
         </div>
         {/* table tally */}
         <div className='p-3 shadow-sm h-fit rounded-2xl mt-2 dark:bg-gray-800 dark:border-gray-70' ref={printRef}>
-           <VotesTally />
+           <VotesTally token={token} />
         </div>
       </div>
 

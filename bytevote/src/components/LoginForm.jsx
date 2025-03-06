@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 //dom routing
 import { BrowserRouter as Router, Routes, Route, Link, useLocation,useNavigate } from "react-router-dom";
 //images
@@ -14,11 +14,26 @@ const LoginForm = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const userRole = localStorage.getItem("role");
+    if (userRole === "admin") {
+      navigate("/adminDashboard");
+    } else if (userRole === "voter") {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
 
     try {
+      // ✅ Clear old session before login
+      localStorage.removeItem("user_id");
+      localStorage.removeItem("role");
+      localStorage.removeItem("user_name");
+      localStorage.removeItem("avatar");
+
       const response = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,22 +47,27 @@ const LoginForm = () => {
         return;
       }
 
-      // Store user details
+      // ✅ Store user details in localStorage
       localStorage.setItem("user_id", data.token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("user_name", data.user);
       localStorage.setItem("avatar", data.avatar);
-      console.log(data);
+      localStorage.setItem("voterID", data.voterID);
+
+      // ✅ Debugging logs
+      console.log("User ID:", localStorage.getItem("user_id"));
+      console.log("Role:", localStorage.getItem("role"));
+
       alert("✅ Login successful!");
 
-      // Redirect based on role
+      // ✅ Redirect based on role
       if (data.role === "admin") {
-        navigate("/adminDashboard"); // Redirect to Admin Panel
-      } else {
-        navigate("/dashboard"); // Redirect to Voting Page
+        navigate("/adminDashboard");
+      } else if (data.role === "voter") {
+        navigate("/dashboard");
       }
     } catch (error) {
-      setError("Something went wrong. Please try again." + error);
+      setError("Something went wrong. Please try again. " + error.message);
     }
   };
 

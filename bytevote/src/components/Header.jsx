@@ -23,7 +23,7 @@ function Header(header) {
 
   const handleLogout = () => {
     localStorage.clear();
-    alert("�� Logged out successfully!");
+    alert("✅ Logged out successfully!");
     navigate("/login"); // Redirect to login page
   }
   return (

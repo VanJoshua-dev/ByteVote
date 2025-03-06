@@ -1,17 +1,38 @@
-import React from "react";
+import React, {useState, useEffect} from "react";
 import { BrowserRouter as Routes, Route } from "react-router-dom";
-
+import axios from "axios";
 //components
 import SideBar from "../components/SideBar";
 import Header from "./Header";
 import BreadCrumb from "./BreadCrumb";
 const ElectionHistory = () => {
+  const [history, setHistory] = useState([]);
+
   const userId = localStorage.getItem("user_id");
   const role = localStorage.getItem("role");
   const username = localStorage.getItem("user_name");
   console.log(userId);
   console.log(role);
   console.log(username);
+  useEffect(() => {
+    
+    const fetchHistory = async (e) => {
+      try{
+        const response = await axios.get("http://localhost:5000/getHistory", {
+          headers: { Authorization: `Bearer ${userId}` },
+        })
+        setHistory(response.data);
+      }catch(e){
+        console.error("Error fetching history: ", e);
+        setHistory([]);
+      }
+      
+    }
+    fetchHistory();
+    const interval = setInterval(fetchHistory, 5000);
+
+    return () => clearInterval(interval);
+  }, [])
   return (
     <div className="">
       <div className="headerContainer p-2 bg-orange-400">
@@ -28,34 +49,16 @@ const ElectionHistory = () => {
           />
           <div className=" p-5 h-144">
             <h1 className="text-center text-3xl">Election History</h1>
-            <div className=" p-3 rounded shadow-md shadow-gray-500 mb-2">
-              <h2>Election 1</h2>
-              <p>Date: 2022-01-01</p>
-              <p>
-                Description: Lorem ipsum dolor sit amet, consectetur adipiscing
-                elit. Donec ultricies, arcu ac semper fermentum, sapien tellus
-                cursus velit, ut pulvinar metus erat id velit.
-              </p>
-            </div>
-            <div className=" p-3 rounded shadow-md shadow-gray-500 mb-2">
-              <h2>Election 2</h2>
-              <p>Date: 2022-02-01</p>
-              <p>
-                Description: Sed vel justo at nunc gravida gravida. Sed
-                condimentum, neque vel pulvinar vestibulum, nisi ligula
-                pellentesque velit, et tristique felis neque eu velit.
-              </p>
-              
-            </div>
-            <div className=" p-3 rounded shadow-md shadow-gray-500 mb-2">
-                <h2>Election 3</h2>
-                <p>Date: 2022-03-01</p>
-                <p>
-                  Description: Donec id varius nunc. Sed sagittis, est sed
-                  eleifend mollis, risus lectus rutrum felis, at condimentum
-                  risus felis vel dui.
-                </p>
-            </div>
+            {history.map((histories) => {
+              return (
+                <div key={histories.history_id} className="shadow mb-3 p-10">
+                  <h2 className="text-2xl">{histories.election_title}</h2>
+                  <p>Date: {histories.election_desc}</p>
+                  <p>Description: {histories.election_date}</p>
+                </div>
+              );
+            })}
+           
           </div>
         </div>
       </div>

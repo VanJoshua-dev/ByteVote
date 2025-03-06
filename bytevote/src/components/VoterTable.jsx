@@ -713,7 +713,7 @@ function VoterTable(getToken) {
                   </td>
                   <td className="px-6 py-4">
                     <img
-                      src={voter.avatar || "default-avatar.png"}
+                      src={"http://localhost:5000/public/userprofile/" + voter.avatar}
                       alt="Avatar"
                       className="w-10 h-10 rounded-full"
                     />

@@ -18,10 +18,12 @@ import Candidates from './components/Candidates';
 import ElectionHistory from './components/ElectionHistory';
 import CreateElection from './components/CreateElection';
 import UserProfile from './components/UserProfile';
+import VoterProfile from './components/VoterProfile';
 import Home from './pages/Home';
 import ElectionPage from './components/ElectionPage';
 import Unautorized from './components/Unauthorized';
 import Middleware from './components/Middleware';
+import VotingPage from './components/VotingPage';
 function App() {
   
   return (
@@ -80,6 +82,7 @@ function App() {
 
         {/* Home page page */}
         <Route path="/dashboard" element={
+          
           <Middleware requiredRole={"voter"}>
               <Home />
           </Middleware>
@@ -89,6 +92,22 @@ function App() {
           <Middleware requiredRole={"voter"}>
               <ElectionPage />
           </Middleware>
+        } />
+
+        {/* handle user profile */}
+        <Route path="/voterprofile" element={
+          <Middleware requiredRole={"voter"}>
+              <VoterProfile />
+          </Middleware>
+          
+        } />
+
+        {/* handle voting page */}
+        <Route path="/votingpage" element={
+          // <Middleware requiredRole={"voter"}>
+             
+          // </Middleware>
+          <VotingPage />
         } />
         {/* handle not existing page page */}
         <Route path="*" element={<NotFound />} />

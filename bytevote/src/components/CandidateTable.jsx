@@ -16,8 +16,9 @@ function CandidateTable(getToken) {
   const [candidates, setCandidates] = useState([]);
   const [filteredCandidates, setFilteredCandidates] = useState([]);
   const [search, setSearch] = useState("");
-  const [editCandidates, setEditCandidates] = useState(null);
-  const [positions, setPositions] = useState([]);
+
+  const [getPosition, setGetPosition] = useState([]);
+  const [cdPosition, setCdPosition] = useState(null);
   useEffect(() => {
     const fetchPositions = async () => {
       try {
@@ -28,7 +29,7 @@ function CandidateTable(getToken) {
             Authorization: `Bearer ${token}`,
           },
         });
-        setPositions(response.data);
+        setGetPosition(response.data);
       } catch (e) {
         console.error("Error fetching positions: ", e);
       }
@@ -71,29 +72,103 @@ function CandidateTable(getToken) {
   }, [search, candidates]);
 
   //handle submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  //--values
+  const [firstname, setfirstname] = useState("");
+  const [lastname, setlastname] = useState("");
+  const [gender, setGender] = useState("");
+  const [candidatePosition, setCandidatePosition] = useState("");
+  const [credibility, setCredibility] = useState("");
+  const [platform, setPlatform] = useState("");
+
+  const handleAdd = async (e) => {
+    e.preventDefault(); // Prevent page reload
     try {
-      const token = getToken.token; // Retrieve token
-      console.log("Token: " + token);
-      const { firstName, lastName } = e.target;
+      const token = getToken.token;
       const response = await axios.post(
         "http://localhost:5000/addCandidate",
-        { firstName: firstName.value, lastName: lastName.value },
+        {
+          firstName: firstname,
+          lastName: lastname,
+          gender: gender,
+          candidatePosition: candidatePosition,
+          credibility: credibility,
+          platform: platform,
+        },
         {
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         }
       );
-      console.log(response.data);
-      setShowModal(false);
-      setCandidates([...candidates, response.data]);
+      alert("Candidate added successfully");
+      setShowModal(false); // Close modal on success
     } catch (e) {
-      console.error("Error adding candidate: ", e);
+      alert("Error adding candidate: ", e);
     }
   };
+  //handle edit
+  //---values
+  const [editCandidate, setEditCandidate] = useState(null);
+  const handleEditCandidate = async (e) => {
+    e.preventDefault();
 
+    try {
+      const token = getToken.token;
+
+      const formData = {
+        candidate_id: editCandidate.candidate_id, // Ensure candidate ID is included
+        new_FirstName: editCandidate.firstname,
+        new_LastName: editCandidate.lastname,
+        new_Position: editCandidate.position_id,
+        new_Gender: editCandidate.gender,
+        new_Credibility: editCandidate.credibility,
+        new_Platform: editCandidate.platform,
+      };
+
+      const response = await axios.patch(
+        "http://localhost:5000/editCandidate",
+        formData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("✅ Candidate Updated Successfully!");
+      setEditModal(false);
+    } catch (e) {
+      alert(e.response?.data?.message || "❌ Error updating candidate.");
+      console.error("❌ Error updating candidate: ", e);
+    }
+  };
+  //handle delete
+  const [delCandidate, setDelCandidate] = useState(null);
+  const handleDelete = async (e) => {
+    e.preventDefault();
+    try{
+      const token = getToken.token;
+      const response = await axios.delete("http://localhost:5000/deleteCandidate", 
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          data: {
+            candidateID: delCandidate.candidate_id,
+          }
+        }
+      )
+      alert("✅ Candidate Deleted Successfully");
+      setDeleteModal(false);
+    }catch(e){
+      alert(e.response?.data?.message || "❌ Error deleting candidate.");
+      console.error("❌ Error updating candidate: ", e);
+      setDeleteModal(false);
+    }
+  }
   return (
     <div className=" h-auto">
       {/* Add Modal */}
@@ -106,7 +181,7 @@ function CandidateTable(getToken) {
         <h1 className="text-3xl mb-3 pb-1 border-b-4 w-70">
           Add new candidate
         </h1>
-        <form action="">
+        <form onSubmit={handleAdd}>
           <div className="flex gap-2">
             <div>
               <label
@@ -119,6 +194,8 @@ function CandidateTable(getToken) {
                 type="text"
                 id="firstName"
                 name="firstName"
+                value={firstname}
+                onChange={(e) => setfirstname(e.target.value)}
                 placeholder="Enter First Name"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
@@ -135,6 +212,8 @@ function CandidateTable(getToken) {
                 type="text"
                 id="lastName"
                 name="lastName"
+                value={lastname}
+                onChange={(e) => setlastname(e.target.value)}
                 placeholder="Enter Last Name"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
@@ -152,15 +231,18 @@ function CandidateTable(getToken) {
               <select
                 id="candidatePosition"
                 name="candidatePosition"
+                value={candidatePosition}
+                onChange={(e) => setCandidatePosition(e.target.value)}
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
               >
-                <option defaultValue={""}>
-                  -- Select Position --
-                </option>
-                {positions.map((position) => (
-                  <option key={position.position_id} value={position.position_id}>
-                    {position.position_name}
+                <option defaultValue={""}>-- Select Position --</option>
+                {getPosition.map((showPosition) => (
+                  <option
+                    key={showPosition.position_id}
+                    value={showPosition.position_id}
+                  >
+                    {showPosition.position_name}
                   </option>
                 ))}
               </select>
@@ -175,12 +257,12 @@ function CandidateTable(getToken) {
               <select
                 id="gender"
                 name="gender"
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
               >
-                <option defaultValue={""}>
-                  -- Select Gender --
-                </option>
+                <option defaultValue={""}>-- Select Gender --</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Prefere Not to Say</option>
@@ -198,6 +280,8 @@ function CandidateTable(getToken) {
               <textarea
                 type="text"
                 id="credibility"
+                value={credibility}
+                onChange={(e) => setCredibility(e.target.value)}
                 name="credibility"
                 placeholder="Candidate Credibility"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
@@ -214,6 +298,8 @@ function CandidateTable(getToken) {
               <textarea
                 type="text"
                 id="platform"
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
                 name="platform"
                 placeholder="Candidate Platform"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
@@ -221,7 +307,7 @@ function CandidateTable(getToken) {
               ></textarea>
             </div>
           </div>
-          <div className="">
+          {/* <div className="">
             <label htmlFor="uploadImage" className="block text-sm font-medium  ">
               Upload Image
             </label>
@@ -231,7 +317,7 @@ function CandidateTable(getToken) {
               name="uploadImage"
               className=" w-100 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
             />
-          </div>
+          </div> */}
           <div className="mt-2 flex justify-center gap-2">
             <button
               type="submit"
@@ -257,8 +343,13 @@ function CandidateTable(getToken) {
         )}
       >
         <h1 className="text-3xl mb-3 pb-1 border-b-4 w-50">Edit Candidate</h1>
-        <form action="">
+        <form onSubmit={handleEditCandidate}>
           <div className="flex gap-2">
+            <input
+              type="hidden"
+              name="candidateID"
+              value={editCandidate?.candidate_id || ""}
+            />
             <div>
               <label
                 htmlFor="firstName"
@@ -268,8 +359,15 @@ function CandidateTable(getToken) {
               </label>
               <input
                 type="text"
-                id="firstName"
-                name="firstName"
+                id="newFirstname"
+                name="newFirstname"
+                value={editCandidate?.firstname || ""}
+                onChange={(e) =>
+                  setEditCandidate({
+                    ...editCandidate,
+                    firstname: e.target.value,
+                  })
+                }
                 placeholder="Enter First Name"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
@@ -284,8 +382,15 @@ function CandidateTable(getToken) {
               </label>
               <input
                 type="text"
-                id="lastName"
-                name="lastName"
+                id="newLastname"
+                value={editCandidate?.lastname || ""}
+                onChange={(e) =>
+                  setEditCandidate({
+                    ...editCandidate,
+                    lastname: e.target.value,
+                  })
+                }
+                name="newLastname"
                 placeholder="Enter Last Name"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
@@ -301,17 +406,25 @@ function CandidateTable(getToken) {
                 Position
               </label>
               <select
-                id="candidatePosition"
-                name="candidatePosition"
+                id="newCandidatePosition"
+                value={editCandidate?.position_id || ""}
+                onChange={(e) =>
+                  setEditCandidate({
+                    ...editCandidate,
+                    position_id: e.target.value,
+                  })
+                }
+                name="newCandidatePosition"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
               >
-                <option defaultValue={""}>
-                  -- Select Position --
-                </option>
-                {positions.map((position) => (
-                  <option key={position.position_id} value={position.position_id}>
-                    {position.position_name}
+                <option defaultValue={""}>-- Select New Position --</option>
+                {getPosition.map((showPosition) => (
+                  <option
+                    key={showPosition.position_id}
+                    value={showPosition.position_id}
+                  >
+                    {showPosition.position_name}
                   </option>
                 ))}
               </select>
@@ -324,14 +437,16 @@ function CandidateTable(getToken) {
                 Gender
               </label>
               <select
-                id="gender"
-                name="gender"
+                id="newGender"
+                name="newGender"
+                value={editCandidate?.gender || ""}
+                onChange={(e) =>
+                  setEditCandidate({ ...editCandidate, gender: e.target.value })
+                }
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
               >
-                <option defaultValue={""}>
-                  -- Select Gender --
-                </option>
+                <option defaultValue={""}>-- Select New Gender --</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Prefere Not to Say</option>
@@ -348,8 +463,15 @@ function CandidateTable(getToken) {
               </label>
               <textarea
                 type="text"
-                id="credibility"
-                name="credibility"
+                id="newCredibility"
+                value={editCandidate?.credibility || ""}
+                onChange={(e) =>
+                  setEditCandidate({
+                    ...editCandidate,
+                    credibility: e.target.value,
+                  })
+                }
+                name="newCredibility"
                 placeholder="Candidate Credibility"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
@@ -364,15 +486,22 @@ function CandidateTable(getToken) {
               </label>
               <textarea
                 type="text"
-                id="platform"
-                name="platform"
+                id="newPlatform"
+                value={editCandidate?.platform || ""}
+                onChange={(e) =>
+                  setEditCandidate({
+                    ...editCandidate,
+                    platform: e.target.value,
+                  })
+                }
+                name="newPlatform"
                 placeholder="Candidate Platform"
                 className="w-100 px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
                 required
               ></textarea>
             </div>
           </div>
-          <div className="">
+          {/* <div className="">
             <label
               htmlFor="uploadImage"
               className="block text-sm font-medium text-gray-900 dark:text-black"
@@ -385,7 +514,7 @@ function CandidateTable(getToken) {
               name="uploadImage"
               className="w-100 border border-gray-300 focus:outline-none focus:border-blue-300 rounded-md"
             />
-          </div>
+          </div> */}
           <div className="mt-2 flex justify-center gap-2">
             <button
               type="submit"
@@ -412,8 +541,8 @@ function CandidateTable(getToken) {
       >
         <BsExclamationCircle size={50} color="red" />
         <h3>Are you sure you want continue?</h3>
-        <form action="">
-          <input type="hidden" name="candidateID" id="candidateID" />
+        <form onSubmit={handleDelete}>
+          <input type="hidden" value={delCandidate?.candidate_id || ""} name="candidateID" id="candidateID" />
           <div className="mt-5">
             <button
               type="button"
@@ -532,7 +661,7 @@ function CandidateTable(getToken) {
                 <td className="px-6 py-4">{candidate.platform}</td>
                 <td className="px-6 py-4">
                   <img
-                    src={avatar}
+                    src={"http://localhost:5000/public/userprofile/" + candidate.avatar}
                     alt=""
                     className="w-12 h-12 border-2 border-amber-400 rounded-full"
                   />
@@ -544,14 +673,14 @@ function CandidateTable(getToken) {
                     className="text-white bg-green-600 rounded py-2 px-2 hover:bg-green-800"
                     onClick={() => {
                       setEditModal(true);
-                      setEditCandidates(candidate);
+                      setEditCandidate(candidate);
                     }}
                   >
                     <FaRegEdit size={16} />
                   </button>{" "}
                   <button
                     className="text-white bg-red-600 rounded py-2 px-2 hover:bg-red-800"
-                    onClick={() => setDeleteModal(true)}
+                    onClick={() => {setDeleteModal(true); setDelCandidate(candidate);}}
                   >
                     <AiOutlineDelete size={16} />
                   </button>

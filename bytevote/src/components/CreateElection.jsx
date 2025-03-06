@@ -23,7 +23,7 @@ const CreateElection = () => {
         <SideBar />
         <div className=" flex-1 p-5 ">
         <BreadCrumb items={[{ label: "Home", path: "/adminDashboard" }, { label: "Create Election" }]} />
-          <ElectionForm />
+          <ElectionForm token={userId}/>
         </div>
       </div>
     </div>

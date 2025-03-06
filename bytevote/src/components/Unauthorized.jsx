@@ -9,6 +9,9 @@ import trojanICT from "../assets/trojan-ICT.png";
 
 function Unautorized() {
  const navigate = useNavigate();
+ const back = () => {
+    window.history.back();
+ }
   return (
     <div className="ladingPageContainer grid  grid-cols-5 grid-rows-5 gap-1 h-screen">
     <div className="imagesContainer col-span-5 flex p-4 h-24 justify-between">
@@ -33,7 +36,7 @@ function Unautorized() {
     <div className="col-span-3 row-span-4 col-start-2 row-start-2 flex flex-col justify-center items-center h-50 mt-40 w-auto sm:w-98 lg:w-190 2xl:w-250 ">
             <h1 className='text-6xl text-center font-bold'>!</h1>
             <h1 className='text-5xl text-center w-screen'>Unauthorized Access</h1>
-            <button className="w-auto bg-orange-400 text-white p-3 2xl:p-3 mt-10  rounded-2xl text-2xl font-bold hover:bg-white hover:text-orange-400" onClick={() => navigate(-1)} >Return to previous page</button>
+            <button className="w-auto bg-orange-400 text-white p-3 2xl:p-3 mt-10  rounded-2xl text-2xl font-bold hover:bg-white hover:text-orange-400" onClick={() => back} >Return to previous page</button>
     </div>
    
   </div>

@@ -6,6 +6,7 @@ const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 const jwt = require("jsonwebtoken");
+const path = require('path');
 console.log("JWT Secret:", process.env.JWT_SECRET);
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,7 +14,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json()); // Parse JSON request bodies
-
+app.use("/public", express.static(path.join(__dirname, "public")));
 // MySQL Connection
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
@@ -123,6 +124,55 @@ app.get('/adminDashboard', verifyToken, isAdmin, (req, res) => {
         res.json(result);
     });
 });
+//fetch Vote Counts
+app.get("/getVoteCounts", (req, res) => {
+    const sql = `
+      SELECT 
+    p.position_id, 
+    p.position_name, 
+    c.candidate_id, 
+    CONCAT(c.firstname, ' ', c.lastname) AS candidate_name, 
+    COUNT(v.vote_id) AS votes
+    FROM positions p
+    LEFT JOIN candidates c ON p.position_id = c.position_id
+    LEFT JOIN votes v ON c.candidate_id = v.candidate_id
+    GROUP BY p.position_id, c.candidate_id
+    ORDER BY p.position_id, votes DESC;
+    `;
+  
+    db.query(sql, (err, results) => {
+      if (err) {
+        console.error("Error fetching vote counts:", err);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+  
+      // Format results to group by position
+      const groupedResults = results.reduce((acc, row) => {
+        let position = acc.find((p) => p.position_id === row.position_id);
+        if (!position) {
+          position = {
+            position_id: row.position_id,
+            position_name: row.position_name,
+            candidates: [],
+          };
+          acc.push(position);
+        }
+  
+        if (row.candidate_id) {
+          position.candidates.push({
+            candidate_id: row.candidate_id,
+            candidate_name: row.candidate_name,
+            votes: row.votes,
+          });
+        }
+  
+        return acc;
+      }, []);
+  
+      res.json(groupedResults);
+    });
+  });
+
 //fetch voters
 app.get('/getVoters', verifyToken, isAdmin, (req, res) => {
     const sql = `
@@ -304,7 +354,7 @@ app.post("/addPosition", verifyToken, isAdmin, (req, res) => {
 
 // fetch voters voted
 app.get('/getCandidates', verifyToken, isAdmin, (req, res) => {
-    const sql = "SELECT c.candidate_id, c.firstname, c.lastname, c.gender, p.position_name AS position, c.credibility, c.platform FROM candidates c JOIN positions p ON c.position_id = p.position_id;";
+    const sql = "SELECT c.candidate_id, c.firstname, c.lastname, c.gender, c.avatar , p.position_name AS position, c.credibility, c.platform FROM candidates c JOIN positions p ON c.position_id = p.position_id;";
     db.query(sql, (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(result);
@@ -312,14 +362,84 @@ app.get('/getCandidates', verifyToken, isAdmin, (req, res) => {
 });
 
 //add candidate
-app.post("/addCandidate", (req, res) => {
-    const { firstname, lastname, gender, position_id, credibility, platform } = req.body;
-    if (!firstname ||!lastname ||!gender ||!position_id ||!credibility ||!platform) {
+app.post("/addCandidate",verifyToken, isAdmin, (req, res) => {
+    const { firstName, lastName, gender, candidatePosition, credibility, platform } = req.body;
+
+    if (!firstName || !lastName || !gender || !candidatePosition || !credibility || !platform) {
         return res.status(400).json({ message: "All fields are required" });
     }
-    const sql = "INSERT INTO candidates (firstname, lastname, gender, position_id, credibility, platform) VALUES (?,?,?,?,?,?)";
-});
 
+    const sql = "INSERT INTO candidates (firstname, lastname, gender, position_id, credibility, platform, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    let profilePictureOptions = [];
+            switch (gender) {
+                case 'Male':
+                    profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                    break;
+                case 'Female':
+                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
+                    break;
+                default:
+                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                    break;
+            }
+
+            // Select a random profile picture
+    const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
+    db.query(sql, [firstName, lastName, gender, candidatePosition, credibility, platform, profilePicture], (err, result) => {
+        if (err) {
+            console.error("Error inserting candidate:", err);
+            return res.status(500).json({ message: "Database error" });
+        }
+        res.status(201).json({ message: "Candidate added successfully", candidateId: result.insertId });
+    });
+});
+//edit candidate
+app.patch("/editCandidate", verifyToken, isAdmin, (req, res) => {
+   const {candidate_id, new_FirstName, new_LastName, new_Position, new_Gender, new_Credibility, new_Platform} = req.body;
+    console.log(candidate_id);
+    console.log(new_FirstName);
+    console.log(new_LastName);
+    console.log(new_Position);
+    console.log(new_Gender);
+    console.log(new_Credibility);
+    console.log(new_Platform);
+
+   if ( !candidate_id || !new_FirstName || !new_LastName || !new_Position || !new_Gender || !new_Credibility || !new_Platform) {
+        return res.status(400).json({ message: "❌ All fields are required" });
+    }
+
+    const sql = `
+        UPDATE candidates 
+        SET firstname = ?, lastname = ?, gender = ?, position_id = ?, credibility = ?, platform = ? 
+        WHERE candidate_id = ?
+    `;
+
+    db.query(sql, [new_FirstName, new_LastName, new_Gender, new_Position, new_Credibility, new_Platform, candidate_id], (err, result) => {
+        if (err) {
+            console.error("Error updating candidate:", err);
+            return res.status(500).json({ message: "Database error" });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Candidate not found" });
+        }
+        res.status(200).json({ message: "Candidate updated successfully" });
+    });
+});
+//delete candidate
+app.delete("/deleteCandidate", verifyToken, isAdmin, (req, res) => {
+    const { candidateID } = req.body;
+    if (!candidateID) {
+        return res.status(400).json({ message: "❗ Candidate ID is required" });
+    }
+    const sql = "DELETE FROM candidates WHERE candidate_id = ?";
+    db.query(sql, [candidateID], (err, result) => {
+        if (err) {
+            console.error("❌ Error deleting candidate:", err);
+            return res.status(500).json({ message: "❌ Database error" });
+        }
+        res.status(201).json({ message: "✅ Candidate added successfully"});
+    });
+})
 // Fetch Votes (With Optional Search)
 app.get("/votes", (req, res) => {
     const searchQuery = req.query.search ? `%${req.query.search}%` : "%";
@@ -400,6 +520,156 @@ app.get('/voteTally', (req, res) => {
     });
 });
 
+
+//creating a election
+app.post("/createElection", verifyToken, isAdmin, (req, res) => {
+    const { title, desc, endDate } = req.body;
+    if (!title || !desc || !endDate) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+    const sql = 'INSERT INTO elections (title, description, end_date) VALUES (?,?,?)';
+    db.query(sql, [title, desc, endDate], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.status(201).json({ message: 'Election created successfully', election_id: result.insertId });
+    });
+});
+
+//fetch the election
+
+app.get('/getElection', (req, res) => {
+    const sql = 'SELECT * FROM elections WHERE status = "pending" OR status = "active"';
+    db.query(sql, (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results);
+    });
+});
+
+app.get('/getActiveElection', (req, res) => {
+    const sql = 'SELECT * FROM elections WHERE status = "active"';
+    db.query(sql, (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results);
+    });
+});
+//setActive election
+
+app.patch('/updateStatus', verifyToken, isAdmin, (req, res) => {
+    const { election_ID, status, title, desc } = req.body;
+
+    if (!election_ID || !status || !title || !desc) {
+        return res.status(400).json({ error: 'Election ID, status, and title are required' });
+    }
+
+    if (status === "ended") {
+        // Move election to history
+        const moveToHistorySQL = `
+        INSERT INTO election_history (election_id, election_title, election_desc)
+        VALUES (?,?,?);
+        `;
+
+        console.log("Inserting into election_history:", { election_ID, title, desc }); // Debugging Log
+
+        db.query(moveToHistorySQL, [election_ID, title, desc], (err, result) => {
+            if (err) {
+                console.error("Error inserting into election_history:", err);
+                return res.status(500).json({ error: err.message });
+            }
+            const  endedSQL = "UPDATE elections SET status = ? WHERE election_id = ?";
+            db.query(endedSQL, [status, election_ID], (err, result) => {
+                if (err) return res.status(500).json({ error: err.message });
+    
+                if (result.affectedRows === 0) {
+                    return res.status(404).json({ error: 'Election not found' });
+                }
+                console.log(`Election status updated to ${status} successfully`);
+                res.json({ message: `Election status updated to ${status} successfully` });
+            });
+        });
+    } else {
+        // Just update status if not closing the election
+        const updateSQL = 'UPDATE elections SET status = ? WHERE election_id = ?';
+
+        console.log("Updating election status:", { election_ID, status });
+
+        db.query(updateSQL, [status, election_ID], (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Election not found' });
+            }
+            console.log(`Election status updated to ${status} successfully`);
+            res.json({ message: `Election status updated to ${status} successfully` });
+        });
+    }
+});
+
+//fetch history
+
+app.get('/getHistory', (req, res) => {
+    const sql = 'SELECT * FROM election_history';
+    db.query(sql, (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results);
+    });
+});
+
+//fetch candidate by position
+app.get('/api/election/candidates', (req, res) => {
+    const sql = `
+      SELECT p.position_id, p.position_name, c.candidate_id, 
+             c.firstname, c.lastname, c.gender, c.platform, 
+             c.credibility, c.avatar
+      FROM positions p
+      LEFT JOIN candidates c ON p.position_id = c.position_id
+      ORDER BY p.position_id;
+    `;
+  
+    db.query(sql, (err, results) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err });
+  
+      // Group candidates by position
+      const positionsMap = {};
+      results.forEach((row) => {
+        if (!positionsMap[row.position_id]) {
+          positionsMap[row.position_id] = {
+            position_id: row.position_id,
+            position_name: row.position_name,
+            candidates: [],
+          };
+        }
+        if (row.candidate_id) {
+          positionsMap[row.position_id].candidates.push({
+            candidate_id: row.candidate_id,
+            name: `${row.firstname} ${row.lastname}`,
+            gender: row.gender,
+            platform: row.platform,
+            credibility: row.credibility,
+            avatar: row.avatar,
+          });
+        }
+      });
+  
+      res.json(Object.values(positionsMap));
+    });
+  });
+  //handle vote
+  app.post('/api/election/vote', (req, res) => {
+    const { votes } = req.body;
+  
+    if (!votes || votes.length === 0) {
+      return res.status(400).json({ message: 'No votes provided' });
+    }
+  
+    const sql = `INSERT INTO votes (voter_id, candidate_id, position_id) VALUES ?`;
+    const values = votes.map(vote => [vote.voter_id, vote.candidate_id, vote.position_id]);
+  
+    db.query(sql, [values], (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: 'Database error', error: err });
+      }
+      res.json({ message: 'Vote submitted successfully!' });
+    });
+  });
 //handle login request
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
@@ -428,7 +698,7 @@ app.post('/login', (req, res) => {
                 { expiresIn: "5h" }
             );
 
-            return res.json({ message: "✅ Voter login successful!", token, role: voter.role, user: voter.username, avatar: voter.avatar });
+            return res.json({ message: "✅ Voter login successful!", token, role: voter.role, user: voter.username, avatar: voter.avatar, voterID: voter.voter_id });
         }
 
         // If not found in voters, check admin table
@@ -486,17 +756,21 @@ app.post('/signup', async (req, res) => {
 
             //Hash password before storing
             const hashedPassword = await bcrypt.hash(password, 10);
-            const maleAvatars = [
-                "/assets/userprofile/default_profile-m1.jpg",
-                "/assets/userprofile/default_profile-m2.jpg",
-            ];
-            const femaleAvatars = [
-                "/assets/userprofile/default_profile-f1.jpg",
-                "/assets/userprofile/default_profile-f2.jpg",
-            ];
-            let profilePicture = gender === "Male"
-                ? maleAvatars[Math.floor(Math.random() * maleAvatars.length)]
-                : femaleAvatars[Math.floor(Math.random() * femaleAvatars.length)];
+            let profilePictureOptions = [];
+            switch (gender) {
+                case 'Male':
+                    profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                    break;
+                case 'Female':
+                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
+                    break;
+                default:
+                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                    break;
+            }
+
+            // Select a random profile picture
+            const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
             // Insert user into the database
             const sql = 'INSERT INTO voters (firstname, lastname, lrn, gender, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)';
             db.query(sql, [firstname, lastname, lrn, gender, username, hashedPassword, profilePicture], (err, result) => {
