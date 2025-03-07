@@ -67,7 +67,7 @@ const isAdmin = (req, res, next) => {
 // 🌟 API Endpoints
 
 // 🏠 Home Route (Test API)
-app.get('/api/', (req, res) => {
+app.get('/api', (req, res) => {
     res.send("BYTEVote is working");
 });
 
