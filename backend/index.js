@@ -652,6 +652,9 @@ app.get('/api/election/candidates', (req, res) => {
       res.json(Object.values(positionsMap));
     });
   });
+  app.get("/api/getVoters", (req, res) => {
+    console.log("hello");
+  })
   //handle vote
   app.post('/api/election/vote', (req, res) => {
     const { votes } = req.body;
