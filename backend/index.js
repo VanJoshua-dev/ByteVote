@@ -12,11 +12,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const pool = require('./db');
 // Middleware
-app.use(cors({ 
-    origin: 'https://bytevote.onrender.com', 
-    methods: 'GET,POST,PUT,DELETE', 
-    credentials: true 
-}));
+const corsOptions = {
+    origin: "https://bytevote.onrender.com", // Allow only your frontend
+    methods: "GET, POST, PUT, DELETE, OPTIONS",
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  };
+app.use(cors(corsOptions));
+
+// ✅ Handle preflight requests
+app.options("*", cors(corsOptions));
 app.use(express.json()); // Parse JSON request bodies
 app.use("/public", express.static(path.join(__dirname, "public")));
 // MySQL Connection
