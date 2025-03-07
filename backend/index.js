@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 const pool = require('./db');
 // Middleware
 const corsOptions = {
-    origin: "https://bytevote.onrender.com", // Allow only your frontend
+    origin: "*", // Allow only your frontend
     methods: "GET, POST, PUT, DELETE, OPTIONS",
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
@@ -32,7 +32,6 @@ const db = mysql.createConnection({
     database: process.env.DB_NAME,
     port: process.env.DB_PORT,
     ssl: { rejectUnauthorized: true } // Required for Azure MySQL
-
 });
 // Connect to database
 db.connect((err) => {
@@ -42,13 +41,7 @@ db.connect((err) => {
         return;
     }
     console.log('Success: Connected to Azure MySQL database.');
-    db.query("SELECT 1", (err, result) => {
-        if (err) {
-            console.error("❌ Database Query Failed:", err.message);
-        } else {
-            console.log("✅ Database is connected and responsive:", result);
-        }
-    });
+   
     
 });
 
@@ -86,17 +79,7 @@ const isAdmin = (req, res, next) => {
 
 // 🏠 Home Route (Test API)
 app.get('/', (req, res) => {
-    const sql = "SELECT * FROM voters";
-
-    db.query(sql, (err, result) => {
-        if (err) {
-            console.error("❌ Database Query Error:", err.message);
-            return res.status(500).json({ error: err.message });
-        }
-
-        console.log("✅ Database Query Success:", result.length, "rows found");
-        res.json({ message: "Connected to Azure MySQL", data: result });
-    });
+    res.send("BYTEVote is working");  
 });
 
 // 📌 Get All Candidates
@@ -808,5 +791,3 @@ app.post('/api/signup', async (req, res) => {
     });
 });
 
-
-export default app;
