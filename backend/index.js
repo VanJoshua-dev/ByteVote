@@ -15,8 +15,7 @@ const pool = require('./db');
 const corsOptions = {
     origin: "*", // Allow only your frontend
     methods: "GET, POST, PUT, DELETE, OPTIONS",
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true
+    allowedHeaders: ["Content-Type", "Authorization"]
   };
 app.use(cors(corsOptions));
 
