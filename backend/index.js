@@ -67,7 +67,7 @@ const isAdmin = (req, res, next) => {
 // 🌟 API Endpoints
 
 // 🏠 Home Route (Test API)
-app.get('/', (req, res) => {
+app.get('api/', (req, res) => {
     res.send("BYTEVote is working");
 });
 
@@ -652,9 +652,6 @@ app.get('/api/election/candidates', (req, res) => {
       res.json(Object.values(positionsMap));
     });
   });
-  app.get("/api/getVoters", (req, res) => {
-    console.log("hello");
-  })
   //handle vote
   app.post('/api/election/vote', (req, res) => {
     const { votes } = req.body;
