@@ -67,7 +67,7 @@ const isAdmin = (req, res, next) => {
 // 🌟 API Endpoints
 
 // 🏠 Home Route (Test API)
-app.get('api/', (req, res) => {
+app.get('/api/', (req, res) => {
     res.send("BYTEVote is working");
 });
 
@@ -75,7 +75,7 @@ app.get('api/', (req, res) => {
 
 
 // 🗳️ Submit a Vote
-app.post('/election', (req, res) => {
+app.post('/api/election', (req, res) => {
     const { voter_id, candidate_id } = req.body;
 
     if (!voter_id || !candidate_id) {
@@ -90,7 +90,7 @@ app.post('/election', (req, res) => {
 });
 
 // fetch dashboard
-app.get('/adminDashboard', verifyToken, isAdmin, (req, res) => {
+app.get('/api/adminDashboard', verifyToken, isAdmin, (req, res) => {
     const { data } = req.query;
 
 
@@ -125,7 +125,7 @@ app.get('/adminDashboard', verifyToken, isAdmin, (req, res) => {
     });
 });
 //fetch Vote Counts
-app.get("/getVoteCounts", (req, res) => {
+app.get("/api/getVoteCounts", (req, res) => {
     const sql = `
       SELECT 
     p.position_id, 
@@ -174,7 +174,7 @@ app.get("/getVoteCounts", (req, res) => {
   });
 
 //fetch voters
-app.get('/getVoters', verifyToken, isAdmin, (req, res) => {
+app.get('/api/getVoters', verifyToken, isAdmin, (req, res) => {
     const sql = `
    SELECT * FROM voters;
   `;
@@ -188,7 +188,7 @@ app.get('/getVoters', verifyToken, isAdmin, (req, res) => {
 
 
 //Add voter
-app.post("/addVoter", verifyToken, isAdmin, async (req, res) => {
+app.post("/api/addVoter", verifyToken, isAdmin, async (req, res) => {
     const { firstname, lastname, LRN, gender, username, password } = req.body;
 
     if (!firstname || !lastname || !LRN || !gender || !username || !password) {
@@ -228,7 +228,7 @@ app.post("/addVoter", verifyToken, isAdmin, async (req, res) => {
       }
 });
 
-app.patch('/editVoter', verifyToken, isAdmin, async (req, res) => {
+app.patch('/api/editVoter', verifyToken, isAdmin, async (req, res) => {
     const { voter_id, new_Firstname, new_Lastname, newLRN, newGender, newUsername, newPassword } = req.body;
 
     if (!voter_id || !new_Firstname || !new_Lastname || !newLRN || !newGender || !newUsername) {
@@ -260,7 +260,7 @@ app.patch('/editVoter', verifyToken, isAdmin, async (req, res) => {
 
 //delete voters
 
-app.delete('/deleteVoter', verifyToken, isAdmin, async (req, res) => {
+app.delete('/api/deleteVoter', verifyToken, isAdmin, async (req, res) => {
     const { voterID } = req.body;
 
     if (!voterID) {
@@ -281,7 +281,7 @@ app.delete('/deleteVoter', verifyToken, isAdmin, async (req, res) => {
 
 //fetch position 
 
-app.get('/getPositions', verifyToken, isAdmin, (req, res) => {
+app.get('/api/getPositions', verifyToken, isAdmin, (req, res) => {
     const sql = 'SELECT * FROM positions';
     db.query(sql, (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -290,7 +290,7 @@ app.get('/getPositions', verifyToken, isAdmin, (req, res) => {
 });
 //edit postion
 
-app.patch('/editPosition', verifyToken, isAdmin, async (req, res) => {
+app.patch('/api/editPosition', verifyToken, isAdmin, async (req, res) => {
     const { positionID, newPosName } = req.body;
 
     if (!positionID || !newPosName) {
@@ -311,7 +311,7 @@ app.patch('/editPosition', verifyToken, isAdmin, async (req, res) => {
 });
 
 //delete positions
-app.delete('/deletePosition', verifyToken, isAdmin, async (req, res) => {
+app.delete('/api/deletePosition', verifyToken, isAdmin, async (req, res) => {
     const { positionID } = req.body;
 
     if (!positionID) {
@@ -332,7 +332,7 @@ app.delete('/deletePosition', verifyToken, isAdmin, async (req, res) => {
 });
 
 //Add position 
-app.post("/addPosition", verifyToken, isAdmin, (req, res) => {
+app.post("/api/addPosition", verifyToken, isAdmin, (req, res) => {
     const { positionName } = req.body;
     if (!positionName) {
         return res.status(400).json({ message: "Position name is required" });
@@ -353,7 +353,7 @@ app.post("/addPosition", verifyToken, isAdmin, (req, res) => {
 
 
 // fetch voters voted
-app.get('/getCandidates', verifyToken, isAdmin, (req, res) => {
+app.get('/api/getCandidates', verifyToken, isAdmin, (req, res) => {
     const sql = "SELECT c.candidate_id, c.firstname, c.lastname, c.gender, c.avatar , p.position_name AS position, c.credibility, c.platform FROM candidates c JOIN positions p ON c.position_id = p.position_id;";
     db.query(sql, (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -362,7 +362,7 @@ app.get('/getCandidates', verifyToken, isAdmin, (req, res) => {
 });
 
 //add candidate
-app.post("/addCandidate",verifyToken, isAdmin, (req, res) => {
+app.post("/api/addCandidate",verifyToken, isAdmin, (req, res) => {
     const { firstName, lastName, gender, candidatePosition, credibility, platform } = req.body;
 
     if (!firstName || !lastName || !gender || !candidatePosition || !credibility || !platform) {
@@ -394,7 +394,7 @@ app.post("/addCandidate",verifyToken, isAdmin, (req, res) => {
     });
 });
 //edit candidate
-app.patch("/editCandidate", verifyToken, isAdmin, (req, res) => {
+app.patch("/api/editCandidate", verifyToken, isAdmin, (req, res) => {
    const {candidate_id, new_FirstName, new_LastName, new_Position, new_Gender, new_Credibility, new_Platform} = req.body;
     console.log(candidate_id);
     console.log(new_FirstName);
@@ -426,7 +426,7 @@ app.patch("/editCandidate", verifyToken, isAdmin, (req, res) => {
     });
 });
 //delete candidate
-app.delete("/deleteCandidate", verifyToken, isAdmin, (req, res) => {
+app.delete("/api/deleteCandidate", verifyToken, isAdmin, (req, res) => {
     const { candidateID } = req.body;
     if (!candidateID) {
         return res.status(400).json({ message: "❗ Candidate ID is required" });
@@ -441,7 +441,7 @@ app.delete("/deleteCandidate", verifyToken, isAdmin, (req, res) => {
     });
 })
 // Fetch Votes (With Optional Search)
-app.get("/votes", (req, res) => {
+app.get("/api/votes", (req, res) => {
     const searchQuery = req.query.search ? `%${req.query.search}%` : "%";
 
     const sql = `
@@ -468,7 +468,7 @@ app.get("/votes", (req, res) => {
 });
 
 // Delete a Vote
-app.delete("/votes/:id", (req, res) => {
+app.delete("/api/votes/:id", (req, res) => {
     const voteId = req.params.id;
     const sql = "DELETE FROM votes WHERE vote_id = ?";
 
@@ -482,7 +482,7 @@ app.delete("/votes/:id", (req, res) => {
 });
 
 // Reset Votes (Delete All Votes)
-app.post("/votes/reset", (req, res) => {
+app.post("/api/votes/reset", (req, res) => {
     const { confirm } = req.body;
     if (confirm !== "RESET_VOTES") {
         return res.status(400).json({ error: "Invalid reset confirmation" });
@@ -497,7 +497,7 @@ app.post("/votes/reset", (req, res) => {
 
 
 //fetch votes in each candidates in each position
-app.get('/voteTally', (req, res) => {
+app.get('/api/voteTally', (req, res) => {
     const query = `
         SELECT p.position_name AS position, c.firstname AS name, COUNT(v.vote_id) AS vote 
         FROM votes v 
@@ -522,7 +522,7 @@ app.get('/voteTally', (req, res) => {
 
 
 //creating a election
-app.post("/createElection", verifyToken, isAdmin, (req, res) => {
+app.post("/api/createElection", verifyToken, isAdmin, (req, res) => {
     const { title, desc, endDate } = req.body;
     if (!title || !desc || !endDate) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -536,7 +536,7 @@ app.post("/createElection", verifyToken, isAdmin, (req, res) => {
 
 //fetch the election
 
-app.get('/getElection', (req, res) => {
+app.get('/api/getElection', (req, res) => {
     const sql = 'SELECT * FROM elections WHERE status = "pending" OR status = "active"';
     db.query(sql, (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -544,7 +544,7 @@ app.get('/getElection', (req, res) => {
     });
 });
 
-app.get('/getActiveElection', (req, res) => {
+app.get('/api/getActiveElection', (req, res) => {
     const sql = 'SELECT * FROM elections WHERE status = "active"';
     db.query(sql, (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -553,7 +553,7 @@ app.get('/getActiveElection', (req, res) => {
 });
 //setActive election
 
-app.patch('/updateStatus', verifyToken, isAdmin, (req, res) => {
+app.patch('/api/updateStatus', verifyToken, isAdmin, (req, res) => {
     const { election_ID, status, title, desc } = req.body;
 
     if (!election_ID || !status || !title || !desc) {
@@ -605,7 +605,7 @@ app.patch('/updateStatus', verifyToken, isAdmin, (req, res) => {
 
 //fetch history
 
-app.get('/getHistory', (req, res) => {
+app.get('/api/getHistory', (req, res) => {
     const sql = 'SELECT * FROM election_history';
     db.query(sql, (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -671,7 +671,7 @@ app.get('/api/election/candidates', (req, res) => {
     });
   });
 //handle login request
-app.post('/login', (req, res) => {
+app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -731,7 +731,7 @@ app.post('/login', (req, res) => {
 });
 
 //register
-app.post('/signup', async (req, res) => {
+app.post('/api/signup', async (req, res) => {
     const { firstname, lastname, lrn, gender, username, password } = req.body;
 
     if (!firstname || !lastname || !lrn || !gender || !username || !password) {
