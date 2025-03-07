@@ -1,5 +1,5 @@
 
-require('dotenv').config();
+import 'dotenv/config';
 
 const bcrypt = require('bcrypt');
 const express = require('express');
