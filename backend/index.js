@@ -42,6 +42,13 @@ db.connect((err) => {
         return;
     }
     console.log('Success: Connected to Azure MySQL database.');
+    db.query("SELECT 1", (err, result) => {
+        if (err) {
+            console.error("❌ Database Query Failed:", err.message);
+        } else {
+            console.log("✅ Database is connected and responsive:", result);
+        }
+    });
     
 });
 
