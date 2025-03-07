@@ -33,9 +33,9 @@ function Userheader() {
             <div className='shadow-lg shadow-amber-400'>
                 {isOpen && (
                     <ul className="absolute right-1 top-15 w-56 p-1 lg:top-18  bg-white rounded-md shadow shadow-amber-400">
-                        <li className="p-4 text-center text-white text-xl mb-1 rounded bg-amber-500 hover:bg-amber-600">
+                        {/* <li className="p-4 text-center text-white text-xl mb-1 rounded bg-amber-500 hover:bg-amber-600">
                             <Link to={"/voterprofile"}>Profile</Link>
-                        </li>
+                        </li> */}
                         <li className="p-4 text-center text-white text-xl rounded bg-amber-500 hover:bg-amber-600">
                             <button onClick={handleLogout}>Logout</button>
                         </li>
