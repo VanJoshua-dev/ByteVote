@@ -797,3 +797,4 @@ app.post('/api/signup', async (req, res) => {
     });
 });
 
+module.exports = app;
