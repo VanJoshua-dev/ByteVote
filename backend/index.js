@@ -91,6 +91,7 @@ app.get('/', (req, res) => {
     db.query(sql, (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: 'Connected to Azure MySQL', databases: result });
+        res.send(JSON.stringify(result));
     });
 });
 
