@@ -86,12 +86,16 @@ const isAdmin = (req, res, next) => {
 
 // 🏠 Home Route (Test API)
 app.get('/', (req, res) => {
-    res.send("BYTEVote is working");
     const sql = "SELECT * FROM voters";
+
     db.query(sql, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: 'Connected to Azure MySQL', databases: result });
-        res.send(JSON.stringify(result));
+        if (err) {
+            console.error("❌ Database Query Error:", err.message);
+            return res.status(500).json({ error: err.message });
+        }
+
+        console.log("✅ Database Query Success:", result.length, "rows found");
+        res.json({ message: "Connected to Azure MySQL", data: result });
     });
 });
 
