@@ -12,7 +12,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const pool = require('./db');
 // Middleware
-const cors = require('cors');
 app.use(cors({ 
     origin: 'https://bytevote.onrender.com', 
     methods: 'GET,POST,PUT,DELETE', 
