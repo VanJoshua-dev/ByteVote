@@ -7,13 +7,14 @@ import loyolaLogo from "../assets/loyola-shs-logo.png";
 import ByteLogo from "../assets/Byte-net-logo.png";
 import trojanICT from "../assets/trojan-ICT.png";
 
+//import API_URL
+import API_URL from "../config"
 
 const LoginForm = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-
   useEffect(() => {
     const userRole = localStorage.getItem("role");
     if (userRole === "admin") {
@@ -34,7 +35,7 @@ const LoginForm = () => {
       localStorage.removeItem("user_name");
       localStorage.removeItem("avatar");
 
-      const response = await fetch("https://byte-vote.vercel.app/api/login", {
+      const response = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),

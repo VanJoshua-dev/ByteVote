@@ -5,7 +5,7 @@ import { BrowserRouter as Routes, Route } from "react-router-dom";
 import SideBar from "../components/SideBar";
 import Header from "./Header";
 import BreadCrumb from "./BreadCrumb";
-import Positiontable from "./Positiontable";
+import PositionTable from "./PositionTable";
 
 const Position = () => {
   const userId = localStorage.getItem("user_id");
@@ -23,7 +23,7 @@ const Position = () => {
         <SideBar />
         <div className=" flex-1 pl-5 pr-5 ">
         <BreadCrumb items={[{ label: "Home", path: "/adminDashboard" }, { label: "Position" }]} />
-          <Positiontable token={userId}/>
+          <PositionTable token={userId}/>
         </div>
       </div>
     </div>
