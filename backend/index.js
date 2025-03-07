@@ -38,9 +38,11 @@ const db = mysql.createConnection({
 db.connect((err) => {
     if (err) {
         console.error('Error: Database connection failed:', err.message);
+        alert('Error: Database connection failed');
         return;
     }
     console.log('Success: Connected to Azure MySQL database.');
+    alert('Connected to Azure MySQL database');
 });
 
 //Middleware
