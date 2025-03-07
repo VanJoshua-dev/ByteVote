@@ -12,7 +12,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const pool = require('./db');
 // Middleware
-app.use(cors({origin: "https://bytevote.onrender.com/"}));
+const cors = require('cors');
+app.use(cors({ 
+    origin: 'https://bytevote.onrender.com', 
+    methods: 'GET,POST,PUT,DELETE', 
+    credentials: true 
+}));
 app.use(express.json()); // Parse JSON request bodies
 app.use("/public", express.static(path.join(__dirname, "public")));
 // MySQL Connection

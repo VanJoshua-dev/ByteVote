@@ -7,4 +7,9 @@ export default defineConfig({
     tailwindcss(),
 
   ],
+  server: {
+    headers: {
+      'Content-Type': 'text/css',
+    }
+  }
 })
