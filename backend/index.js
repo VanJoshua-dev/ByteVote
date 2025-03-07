@@ -10,7 +10,7 @@ const path = require('path');
 console.log("JWT Secret:", process.env.JWT_SECRET);
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+const pool = require('./db');
 // Middleware
 app.use(cors());
 app.use(express.json()); // Parse JSON request bodies
@@ -671,23 +671,21 @@ app.get('/api/election/candidates', (req, res) => {
     });
   });
 //handle login request
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
         return res.status(400).json({ error: 'Username and Password are required' });
     }
 
-    // Check voters table
-    const checkVoterQuery = 'SELECT * FROM voters WHERE username = ?';
-    db.query(checkVoterQuery, [username], async (err, voterResults) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        // Check voters table
+        const [voterResults] = await pool.query('SELECT * FROM voters WHERE username = ?', [username]);
 
         if (voterResults.length > 0) {
             const voter = voterResults[0];
-
-            // Compare hashed password
             const isMatch = await bcrypt.compare(password, voter.password);
+
             if (!isMatch) {
                 return res.status(401).json({ error: 'Invalid username or password' });
             }
@@ -701,33 +699,33 @@ app.post('/api/login', (req, res) => {
             return res.json({ message: "✅ Voter login successful!", token, role: voter.role, user: voter.username, avatar: voter.avatar, voterID: voter.voter_id });
         }
 
-        // If not found in voters, check admin table
-        const checkAdminQuery = 'SELECT * FROM admin WHERE username = ?';
-        db.query(checkAdminQuery, [username], async (err, adminResults) => {
-            if (err) return res.status(500).json({ error: err.message });
+        // Check admin table
+        const [adminResults] = await pool.query('SELECT * FROM admin WHERE username = ?', [username]);
 
-            if (adminResults.length > 0) {
-                const admin = adminResults[0];
+        if (adminResults.length > 0) {
+            const admin = adminResults[0];
+            const isMatch = await bcrypt.compare(password, admin.password);
 
-                // Compare hashed password
-                const isMatch = await bcrypt.compare(password, admin.password);
-                if (!isMatch) {
-                    return res.status(401).json({ error: 'Invalid username or password' });
-                }
-
-                const token = jwt.sign(
-                    { id: admin.admin_id, role: admin.role, user: admin.username },
-                    process.env.JWT_SECRET,
-                    { expiresIn: "5h" }
-                );
-
-                return res.json({ message: "✅ Admin login successful!", token, role: admin.role, user: admin.username });
+            if (!isMatch) {
+                return res.status(401).json({ error: 'Invalid username or password' });
             }
 
-            // If username does not exist in either table, return error
-            res.status(401).json({ error: 'Invalid username or password' });
-        });
-    });
+            const token = jwt.sign(
+                { id: admin.admin_id, role: admin.role, user: admin.username },
+                process.env.JWT_SECRET,
+                { expiresIn: "5h" }
+            );
+
+            return res.json({ message: "✅ Admin login successful!", token, role: admin.role, user: admin.username });
+        }
+
+        // If not found in either table
+        return res.status(401).json({ error: 'Invalid username or password' });
+
+    } catch (error) {
+        console.error('Database Query Error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 //register
