@@ -7,6 +7,7 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const jwt = require("jsonwebtoken");
 const path = require('path');
+const fs = require('fs');
 console.log("JWT Secret:", process.env.JWT_SECRET);
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,13 +33,15 @@ app.use(express.json()); // Parse JSON request bodies
 app.use("/public", express.static(path.join(__dirname, "public")));
 // MySQL Connection
 const pool = mysql.createPool({
-    connectionLimit: 10, // ✅ Allows multiple connections
+    connectionLimit: 10,
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
-    ssl: { rejectUnauthorized: true }
+    port: process.env.DB_PORT || 3306,
+    ssl: {
+        ca: fs.readFileSync("./DigiCertGlobalRootG2.crt.pem") // ✅ Load the SSL certificate
+    }
 }).promise();
 // Connect to database
 pool.getConnection((err) => {
@@ -72,7 +75,7 @@ const verifyToken = (req, res, next) => {
         next();
     });
 };
-app.get("/test-db", async (req, res) => {
+app.get("/api/test-db", async (req, res) => {
     try {
         const [results] = await pool.query("SELECT NOW() AS currentTime");
         res.json({ message: "Database connected successfully!", results });
