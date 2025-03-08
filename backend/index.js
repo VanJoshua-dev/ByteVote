@@ -10,10 +10,10 @@ const path = require('path');
 console.log("JWT Secret:", process.env.JWT_SECRET);
 const app = express();
 const PORT = process.env.PORT || 5000;
-const pool = require('./db');
+// const pool = require('./db');
 // Middleware
 const corsOptions = {
-    origin: "http://localhost:5176", // Allow only your frontend
+    origin: "*", // Allow only your frontend
     methods: "GET, POST, PUT, DELETE, OPTIONS",
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true // ✅ Allow credentials (important for cookies/JWTs)
@@ -31,24 +31,23 @@ app.options("*", (req, res) => {
 app.use(express.json()); // Parse JSON request bodies
 app.use("/public", express.static(path.join(__dirname, "public")));
 // MySQL Connection
-const db = mysql.createConnection({
+const pool = mysql.createPool({
+    connectionLimit: 10, // ✅ Allows multiple connections
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT,
-    ssl: { rejectUnauthorized: true } // Required for Azure MySQL
-});
+    ssl: { rejectUnauthorized: true }
+}).promise();
 // Connect to database
-db.connect((err) => {
+pool.getConnection((err) => {
     if (err) {
         console.error('Error: Database connection failed:', err.message);
         
         return;
     }
     console.log('Success: Connected to Azure MySQL database.');
-   
-    
 });
 
 //Middleware
@@ -73,7 +72,14 @@ const verifyToken = (req, res, next) => {
         next();
     });
 };
-
+app.get("/test-db", async (req, res) => {
+    try {
+        const [results] = await pool.query("SELECT NOW() AS currentTime");
+        res.json({ message: "Database connected successfully!", results });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 //Restrict Access to Admins Only
 const isAdmin = (req, res, next) => {
     if (req.user.role !== 'admin') {
@@ -88,7 +94,114 @@ app.get('/', (req, res) => {
     res.send("BYTEVote is working");  
 });
 
-// 📌 Get All Candidates
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and Password are required' });
+    }
+
+    try {
+        // Check voters table
+        const [voterResults] = await pool.promise().query('SELECT * FROM voters WHERE username = ?', [username]);
+
+        if (voterResults.length > 0) {
+            const voter = voterResults[0];
+            const isMatch = await bcrypt.compare(password, voter.password);
+
+            if (!isMatch) {
+                return res.status(401).json({ error: 'Invalid username or password' });
+            }
+
+            const token = jwt.sign(
+                { id: voter.voter_id, role: voter.role, user: voter.username, avatar: voter.avatar },
+                process.env.JWT_SECRET,
+                { expiresIn: "5h" }
+            );
+
+            return res.json({ message: "✅ Voter login successful!", token, role: voter.role, user: voter.username, avatar: voter.avatar, voterID: voter.voter_id });
+        }
+
+        // Check admin table
+        const [adminResults] = await pool.promise().query('SELECT * FROM admin WHERE username = ?', [username]);
+
+        if (adminResults.length > 0) {
+            const admin = adminResults[0];
+            const isMatch = await bcrypt.compare(password, admin.password);
+
+            if (!isMatch) {
+                return res.status(401).json({ error: 'Invalid username or password' });
+            }
+
+            const token = jwt.sign(
+                { id: admin.admin_id, role: admin.role, user: admin.username },
+                process.env.JWT_SECRET,
+                { expiresIn: "5h" }
+            );
+
+            return res.json({ message: "✅ Admin login successful!", token, role: admin.role, user: admin.username });
+        }
+
+        // If not found in either table
+        return res.status(401).json({ error: 'Invalid username or password' });
+
+    } catch (error) {
+        console.error('Database Query Error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+//register
+app.post('/api/signup', async (req, res) => {
+    const { firstname, lastname, lrn, gender, username, password } = req.body;
+
+    if (!firstname || !lastname || !lrn || !gender || !username || !password) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Check if username already exists
+    db.query('SELECT * FROM voters WHERE username = ?', [username], (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        if (results.length > 0) {
+            return res.status(400).json({ error: 'Username is already taken' });
+        }
+
+        // Check if LRN is unique
+        db.query('SELECT * FROM voters WHERE lrn = ?', [lrn], async (err, lrnResults) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            if (lrnResults.length > 0) {
+                return res.status(400).json({ error: 'LRN is already registered' });
+            }
+
+            //Hash password before storing
+            const hashedPassword = await bcrypt.hash(password, 10);
+            let profilePictureOptions = [];
+            switch (gender) {
+                case 'Male':
+                    profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                    break;
+                case 'Female':
+                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
+                    break;
+                default:
+                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                    break;
+            }
+
+            // Select a random profile picture
+            const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
+            // Insert user into the database
+            const sql = 'INSERT INTO voters (firstname, lastname, lrn, gender, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)';
+            db.query(sql, [firstname, lastname, lrn, gender, username, hashedPassword, profilePicture], (err, result) => {
+                if (err) return res.status(500).json({ error: err.message });
+
+                res.json({ message: '✅ Registration successful! You can now log in.' });
+            });
+        });
+    });
+});
 
 
 // 🗳️ Submit a Vote
@@ -688,113 +801,9 @@ app.get('/api/election/candidates', (req, res) => {
     });
   });
 //handle login request
-app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
 
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username and Password are required' });
-    }
-
-    try {
-        // Check voters table
-        const [voterResults] = await pool.query('SELECT * FROM voters WHERE username = ?', [username]);
-
-        if (voterResults.length > 0) {
-            const voter = voterResults[0];
-            const isMatch = await bcrypt.compare(password, voter.password);
-
-            if (!isMatch) {
-                return res.status(401).json({ error: 'Invalid username or password' });
-            }
-
-            const token = jwt.sign(
-                { id: voter.voter_id, role: voter.role, user: voter.username, avatar: voter.avatar },
-                process.env.JWT_SECRET,
-                { expiresIn: "5h" }
-            );
-
-            return res.json({ message: "✅ Voter login successful!", token, role: voter.role, user: voter.username, avatar: voter.avatar, voterID: voter.voter_id });
-        }
-
-        // Check admin table
-        const [adminResults] = await pool.query('SELECT * FROM admin WHERE username = ?', [username]);
-
-        if (adminResults.length > 0) {
-            const admin = adminResults[0];
-            const isMatch = await bcrypt.compare(password, admin.password);
-
-            if (!isMatch) {
-                return res.status(401).json({ error: 'Invalid username or password' });
-            }
-
-            const token = jwt.sign(
-                { id: admin.admin_id, role: admin.role, user: admin.username },
-                process.env.JWT_SECRET,
-                { expiresIn: "5h" }
-            );
-
-            return res.json({ message: "✅ Admin login successful!", token, role: admin.role, user: admin.username });
-        }
-
-        // If not found in either table
-        return res.status(401).json({ error: 'Invalid username or password' });
-
-    } catch (error) {
-        console.error('Database Query Error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-//register
-app.post('/api/signup', async (req, res) => {
-    const { firstname, lastname, lrn, gender, username, password } = req.body;
-
-    if (!firstname || !lastname || !lrn || !gender || !username || !password) {
-        return res.status(400).json({ error: 'All fields are required' });
-    }
-
-    // Check if username already exists
-    db.query('SELECT * FROM voters WHERE username = ?', [username], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        if (results.length > 0) {
-            return res.status(400).json({ error: 'Username is already taken' });
-        }
-
-        // Check if LRN is unique
-        db.query('SELECT * FROM voters WHERE lrn = ?', [lrn], async (err, lrnResults) => {
-            if (err) return res.status(500).json({ error: err.message });
-
-            if (lrnResults.length > 0) {
-                return res.status(400).json({ error: 'LRN is already registered' });
-            }
-
-            //Hash password before storing
-            const hashedPassword = await bcrypt.hash(password, 10);
-            let profilePictureOptions = [];
-            switch (gender) {
-                case 'Male':
-                    profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
-                    break;
-                case 'Female':
-                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
-                    break;
-                default:
-                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
-                    break;
-            }
-
-            // Select a random profile picture
-            const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
-            // Insert user into the database
-            const sql = 'INSERT INTO voters (firstname, lastname, lrn, gender, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)';
-            db.query(sql, [firstname, lastname, lrn, gender, username, hashedPassword, profilePicture], (err, result) => {
-                if (err) return res.status(500).json({ error: err.message });
-
-                res.json({ message: '✅ Registration successful! You can now log in.' });
-            });
-        });
-    });
+app.listen(PORT, () => {
+    console.log(`✅ Server running on http://localhost:${PORT}`);
 });
 
 module.exports = app;
