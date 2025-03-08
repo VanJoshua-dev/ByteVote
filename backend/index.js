@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const bcrypt = require("bcryptjs");
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const cors = require('cors');
 const jwt = require("jsonwebtoken");
 const path = require('path');
@@ -11,7 +11,6 @@ const fs = require('fs');
 console.log("JWT Secret:", process.env.JWT_SECRET);
 const app = express();
 const PORT = process.env.PORT || 5000;
-// const pool = require('./db');
 // Middleware
 const corsOptions = {
     origin: "*", // Allow only your frontend
@@ -23,7 +22,7 @@ app.use(cors(corsOptions));
 
 // ✅ Handle preflight requests
 app.options("*", (req, res) => {
-    res.header("Access-Control-Allow-Origin", "http://localhost:5176");
+    res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     res.header("Access-Control-Allow-Credentials", "true");
@@ -31,20 +30,21 @@ app.options("*", (req, res) => {
 });
 app.use(express.json()); // Parse JSON request bodies
 app.use("/public", express.static(path.join(__dirname, "public")));
-// MySQL Connection
-const pool = mysql.createPool({
-    connectionLimit: 10,
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306,
+const sslCertPath = path.join(__dirname, "DigiCertGlobalRootCA.crt.pem"); // ✅ Correct relative path
+const serverCa = [fs.readFileSync(sslCertPath, "utf8")];
+const conn=mysql.createPool({
+    host:"bytevote.mysql.database.azure.com",
+    user:"bytevote_2025",
+    password:"Bytevote_25",
+    database:"db_votingsystem",
+    port:3306,
     ssl: {
-        ca: fs.readFileSync("/certs/DigiCertGlobalRootG2.crt.pem") // ✅ Load the SSL certificate
+        rejectUnauthorized: true,
+        ca: serverCa
     }
-}).promise();
+});
 // Connect to database
-pool.getConnection((err) => {
+conn.getConnection((err) => {
     if (err) {
         console.error('Error: Database connection failed:', err.message);
         
@@ -77,7 +77,8 @@ const verifyToken = (req, res, next) => {
 };
 app.get("/api/test-db", async (req, res) => {
     try {
-        const [results] = await pool.query("SELECT NOW() AS currentTime");
+        const [results] = await conn.query("SELECT NOW() AS currentTime");
+
         res.json({ message: "Database connected successfully!", results });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -106,7 +107,7 @@ app.post('/api/login', async (req, res) => {
 
     try {
         // Check voters table
-        const [voterResults] = await pool.promise().query('SELECT * FROM voters WHERE username = ?', [username]);
+        const [voterResults] = await conn.promise().query('SELECT * FROM voters WHERE username = ?', [username]);
 
         if (voterResults.length > 0) {
             const voter = voterResults[0];
