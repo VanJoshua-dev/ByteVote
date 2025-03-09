@@ -17,12 +17,21 @@ function VotingPage() {
 
   // Fetch candidates by position
   useEffect(() => {
-    axios.get('http://localhost:5000/api/election/candidates')
-      .then(res => {
-        setPositions(res.data);
-      })
-      .catch(err => console.error(err));
-  }, []);
+    const fetchCandidates = async () => {
+        try {
+            const response = await fetch("https://byte-vote.vercel.app/api/electionCandidates");
+            if (!response.ok) {
+                throw new Error("Failed to fetch election candidates");
+            }
+            const data = await response.json();
+            setPositions(data);
+        } catch (error) {
+            console.error("Error fetching election candidates:", error);
+        }
+    };
+
+    fetchCandidates();
+}, []);
 
   // Handle candidate selection
   const handleSelectCandidate = (positionId, candidateId) => {
@@ -33,28 +42,40 @@ function VotingPage() {
   };
 
   // Handle vote submission
-  const handleSubmitVote = () => {
+  const handleSubmitVote = async () => {
     if (Object.keys(selectedVotes).length === 0) {
-      alert('Please select at least one candidate before submitting.');
-      return;
+        alert('Please select at least one candidate before submitting.');
+        return;
     }
 
     const votes = Object.entries(selectedVotes).map(([positionId, candidateId]) => ({
-      voter_id: id, // User's ID from localStorage
-      candidate_id: candidateId,
-      position_id: positionId
+        voter_id: id, // User's ID from localStorage
+        candidate_id: candidateId,
+        position_id: positionId
     }));
 
-    axios.post('http://localhost:5000/api/election/vote', { votes })
-      .then(res => {
+    try {
+        const response = await fetch('https://byte-vote.vercel.app/api/electionVote', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ votes })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Error submitting vote');
+        }
+
         alert('Vote submitted successfully!');
         navigate('/dashboard'); // Redirect after voting
-      })
-      .catch(err => {
+    } catch (err) {
         console.error(err);
-        alert('Error submitting vote');
-      });
-  };
+        alert(err.message);
+    }
+};
 
   return (
     <div className='w-screen h-screen'>
@@ -83,7 +104,7 @@ function VotingPage() {
                       onClick={() => handleSelectCandidate(position.position_id, candidate.candidate_id)}
                     >
                       <div className='flex justify-center items-center'>
-                        <img src={`http://localhost:5000/uploads/${candidate.avatar}`} alt="" className="w-30 h-30 object-cover object-center rounded-full"/>
+                        <img src={`https://byte-vote.vercel.app/public/userprofile/${candidate.avatar}`} alt="" className="w-30 h-30 object-cover object-center rounded-full"/>
                       </div>
                       <div className='text-center'>
                         <h3 className='text-gray-600'>{candidate.name}</h3>

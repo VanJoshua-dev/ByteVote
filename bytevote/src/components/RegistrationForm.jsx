@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, { useState, useEffect } from "react";
 //dom routing
 import {
   BrowserRouter as Router,
@@ -16,8 +16,6 @@ import byteicon from "../assets/byte-icon.png";
 import loyolaLogo from "../assets/loyola-shs-logo.png";
 import ByteLogo from "../assets/Byte-net-logo.png";
 import trojanICT from "../assets/trojan-ICT.png";
-import Image1 from "../assets/userprofile/default_profile-f1.jpg";
-console.log(Image1);
 const RegistrationForm = () => {
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
@@ -26,29 +24,49 @@ const RegistrationForm = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate(); // Redirect function
-
+  useEffect(() => {
+      const userRole = localStorage.getItem("role");
+      if (userRole === "admin") {
+        navigate("/adminDashboard");
+      } else if (userRole === "voter") {
+        navigate("/dashboard");
+      }
+    }, [navigate]);
   const handleRegister = async (e) => {
     e.preventDefault();
 
+    // Trim values to prevent leading/trailing spaces
+    const userData = {
+      firstname: firstname.trim(),
+      lastname: lastname.trim(),
+      lrn: lrn.trim(),
+      gender: gender.trim(),
+      username: username.trim(),
+      password: password.trim(),
+    };
+
     try {
-      const response = await fetch("http://localhost:5000/signup", {
+      const response = await fetch("https://byte-vote.vercel.app/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstname, lastname, lrn, gender, username, password }),
+        body: JSON.stringify(userData),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || "Registration failed");
-      } else {
-        alert("Registration successful!");
-        setInterval(() => {
-          navigate("/login");
-        }, 1000)
+        throw new Error(data.error || "Registration failed");
       }
+
+      alert("✅ Registration successful!");
+
+      // Use setTimeout for a one-time delay before navigating
+      setTimeout(() => {
+        navigate("/login");
+      }, 1000);
     } catch (error) {
-      alert("Something went wrong. Please try again." + error);
+      console.error("Registration Error:", error);
+      alert("❌ Something went wrong. Please try again.\n" + error.message);
     }
   };
   return (

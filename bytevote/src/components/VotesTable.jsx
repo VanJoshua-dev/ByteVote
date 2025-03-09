@@ -7,31 +7,40 @@ function VotesTable() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchVotes();
-  }, []);
+  const token = localStorage.getItem("token"); // Assuming JWT is stored in localStorage
 
-  const fetchVotes = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("http://localhost:5000/votes");
-      const data = await res.json();
-      setVotes(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error fetching votes:", err);
-      setError("Failed to load votes.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const fetchVotes = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetch("https://byte-vote.vercel.app/api/votes", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to fetch votes");
+        const data = await res.json();
+        setVotes(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching votes:", err);
+        setError("Failed to load votes.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVotes();
+  }, [token]); // Ensure token is included in dependency array
 
   const deleteVote = async (voteId) => {
     if (!window.confirm("Are you sure you want to delete this vote?")) return;
 
     try {
-      await fetch(`http://localhost:5000/votes/${voteId}`, { method: "DELETE" });
-      fetchVotes();
+      const res = await fetch(`https://byte-vote.vercel.app/api/votes/${voteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to delete vote");
+      setVotes((prev) => prev.filter((vote) => vote.vote_id !== voteId)); // Optimistic update
     } catch (err) {
       console.error("Error deleting vote:", err);
       setError("Failed to delete vote.");
@@ -39,11 +48,25 @@ function VotesTable() {
   };
 
   const resetVotes = async () => {
-    if (!window.confirm("Are you sure you want to reset all votes? This action cannot be undone.")) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to reset all votes? This action cannot be undone."
+      )
+    )
+      return;
 
     try {
-      await fetch("http://localhost:5000/votes/reset", { method: "POST" });
-      fetchVotes();
+      const res = await fetch("https://byte-vote.vercel.app/api/votesReset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confirm: "RESET_VOTES" }),
+      });
+
+      if (!res.ok) throw new Error("Failed to reset votes");
+      setVotes([]); // Clear state after successful reset
     } catch (err) {
       console.error("Error resetting votes:", err);
       setError("Failed to reset votes.");
@@ -52,12 +75,14 @@ function VotesTable() {
 
   // Optimized search filtering
   const filteredVotes = useMemo(() => {
+    if (!search.trim()) return votes; // Prevents unnecessary filtering on empty search
+
     return votes.filter((vote) =>
       [vote?.candidate_name, vote?.position_name]
-        .some((field) => field?.toLowerCase().includes(search.toLowerCase()))
+        .filter(Boolean) // Removes undefined/null values
+        .some((field) => field.toLowerCase().includes(search.toLowerCase()))
     );
   }, [votes, search]);
-
   return (
     <div className="h-auto">
       {/* Search & Reset */}
@@ -79,7 +104,7 @@ function VotesTable() {
       </div>
 
       {/* Loading & Error Handling */}
-      {loading && <p className="text-center py-4">Loading votes...</p>}
+      {loading && <p className="text-center py-4">Currently no votes yet.</p>}
       {error && <p className="text-center py-4 text-red-500">{error}</p>}
 
       {/* Table */}
@@ -97,11 +122,16 @@ function VotesTable() {
           <tbody>
             {filteredVotes.length > 0 ? (
               filteredVotes.map((vote) => (
-                <tr key={vote.vote_id} className="border-b dark:border-gray-700">
+                <tr
+                  key={vote.vote_id}
+                  className="border-b dark:border-gray-700"
+                >
                   <td className="px-6 py-4">{vote.vote_id}</td>
                   <td className="px-6 py-4">{vote.candidate_name}</td>
                   <td className="px-6 py-4">{vote.position_name}</td>
-                  <td className="px-6 py-4">{new Date(vote.vote_time).toLocaleString()}</td>
+                  <td className="px-6 py-4">
+                    {new Date(vote.vote_time).toLocaleString()}
+                  </td>
                   <td className="px-6 py-4">
                     <button
                       onClick={() => deleteVote(vote.vote_id)}

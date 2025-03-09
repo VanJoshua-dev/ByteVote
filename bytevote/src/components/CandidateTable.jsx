@@ -16,48 +16,69 @@ function CandidateTable(getToken) {
   const [candidates, setCandidates] = useState([]);
   const [filteredCandidates, setFilteredCandidates] = useState([]);
   const [search, setSearch] = useState("");
-
   const [getPosition, setGetPosition] = useState([]);
-  const [cdPosition, setCdPosition] = useState(null);
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        const token = getToken.token; // Retrieve token
+        const token = getToken?.token; // Ensure token exists
+        if (!token) {
+          console.warn("Token is missing!");
+          return;
+        }
         console.log("Token: " + token);
-        const response = await axios.get("http://localhost:5000/getPositions", {
+        
+        const response = await fetch("https://byte-vote.vercel.app/api/getPositions", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        setGetPosition(response.data);
+  
+        if (!response.ok) {
+          throw new Error("Failed to fetch positions");
+        }
+  
+        const data = await response.json();
+        setGetPosition(data);
       } catch (e) {
         console.error("Error fetching positions: ", e);
       }
     };
+  
     fetchPositions();
-  }, []);
+  }, [getToken]);
+
   useEffect(() => {
-    const filteredCandidates = async () => {
+    const fetchCandidates = async () => {
       try {
-        const token = getToken.token; // Retrieve token
+        const token = getToken?.token; // Ensure token exists
+        if (!token) {
+          console.warn("Token is missing!");
+          return;
+        }
+  
         console.log("Token: " + token);
-        const response = await axios.get(
-          "http://localhost:5000/getCandidates",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        setCandidates(response.data);
-        setFilteredCandidates(response.data);
+        const response = await fetch("https://byte-vote.vercel.app/api/getCandidates", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+  
+        if (!response.ok) {
+          throw new Error("Failed to fetch candidates");
+        }
+  
+        const data = await response.json();
+        setCandidates(data);
+        setFilteredCandidates(data);
       } catch (e) {
-        console.error("Error fetching positions: ", e);
+        console.error("Error fetching candidates: ", e);
       }
     };
-    filteredCandidates();
-    const interval = setInterval(filteredCandidates, 5000);
-    return () => clearInterval(interval);
+  
+    fetchCandidates(); // Fetch immediately when the component mounts
+  
+    const interval = setInterval(fetchCandidates, 5000); // Fetch every 5 seconds
+    return () => clearInterval(interval); // Cleanup interval on unmount
   }, [getToken]);
 
   useEffect(() => {
@@ -81,30 +102,40 @@ function CandidateTable(getToken) {
   const [platform, setPlatform] = useState("");
 
   const handleAdd = async (e) => {
-    e.preventDefault(); // Prevent page reload
+    e.preventDefault(); // Prevent form from reloading the page
+  
+    if (!getToken?.token) {
+      alert("Authentication token is missing!");
+      return;
+    }
+  
     try {
       const token = getToken.token;
-      const response = await axios.post(
-        "http://localhost:5000/addCandidate",
-        {
+      const response = await fetch("https://byte-vote.vercel.app/api/addCandidate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
           firstName: firstname,
           lastName: lastname,
           gender: gender,
           candidatePosition: candidatePosition,
           credibility: credibility,
           platform: platform,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      alert("Candidate added successfully");
-      setShowModal(false); // Close modal on success
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error("Failed to add candidate");
+      }
+  
+      alert("Candidate added successfully!");
+      setShowModal(false); // Close modal after success
     } catch (e) {
-      alert("Error adding candidate: ", e);
+      alert("Error adding candidate: " + e.message);
+      console.error("Error:", e);
     }
   };
   //handle edit
@@ -112,63 +143,94 @@ function CandidateTable(getToken) {
   const [editCandidate, setEditCandidate] = useState(null);
   const handleEditCandidate = async (e) => {
     e.preventDefault();
-
+  
+    if (!editCandidate || !editCandidate.candidate_id) {
+      alert("❌ Candidate data is missing!");
+      return;
+    }
+  
+    if (!getToken?.token) {
+      alert("❌ Authentication token is missing!");
+      return;
+    }
+  
     try {
       const token = getToken.token;
-
+  
       const formData = {
-        candidate_id: editCandidate.candidate_id, // Ensure candidate ID is included
-        new_FirstName: editCandidate.firstname,
+        candidate_id: editCandidate.candidate_id,
+        new_FirstName: editCandidate.firstname, // Match backend field names
         new_LastName: editCandidate.lastname,
         new_Position: editCandidate.position_id,
         new_Gender: editCandidate.gender,
         new_Credibility: editCandidate.credibility,
         new_Platform: editCandidate.platform,
       };
-
-      const response = await axios.patch(
-        "http://localhost:5000/editCandidate",
-        formData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+  
+      const response = await fetch("https://byte-vote.vercel.app/api/editCandidate", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update candidate.");
+      }
+  
       alert("✅ Candidate Updated Successfully!");
       setEditModal(false);
     } catch (e) {
-      alert(e.response?.data?.message || "❌ Error updating candidate.");
-      console.error("❌ Error updating candidate: ", e);
+      alert("❌ Error updating candidate: " + e.message);
+      console.error("❌ Error updating candidate:", e);
     }
   };
   //handle delete
   const [delCandidate, setDelCandidate] = useState(null);
   const handleDelete = async (e) => {
     e.preventDefault();
-    try{
+  
+    if (!delCandidate || !delCandidate.candidate_id) {
+      alert("❌ No candidate selected for deletion!");
+      return;
+    }
+  
+    if (!getToken?.token) {
+      alert("❌ Authentication token is missing!");
+      return;
+    }
+  
+    try {
       const token = getToken.token;
-      const response = await axios.delete("http://localhost:5000/deleteCandidate", 
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          data: {
-            candidateID: delCandidate.candidate_id,
-          }
-        }
-      )
-      alert("✅ Candidate Deleted Successfully");
+      const candidateID = delCandidate.candidate_id;
+  
+      const response = await fetch(`https://byte-vote.vercel.app/api/deleteCandidate/${candidateID}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to delete candidate.");
+      }
+  
+      alert("✅ Candidate Deleted Successfully!");
       setDeleteModal(false);
-    }catch(e){
-      alert(e.response?.data?.message || "❌ Error deleting candidate.");
-      console.error("❌ Error updating candidate: ", e);
+    } catch (e) {
+      alert("❌ Error deleting candidate: " + e.message);
+      console.error("❌ Error deleting candidate:", e);
       setDeleteModal(false);
     }
-  }
+  };
+  
   return (
     <div className=" h-auto">
       {/* Add Modal */}
@@ -661,7 +723,7 @@ function CandidateTable(getToken) {
                 <td className="px-6 py-4">{candidate.platform}</td>
                 <td className="px-6 py-4">
                   <img
-                    src={"http://localhost:5000/public/userprofile/" + candidate.avatar}
+                    src={"https://byte-vote.vercel.app/public/userprofile/" + candidate.avatar}
                     alt=""
                     className="w-12 h-12 border-2 border-amber-400 rounded-full"
                   />

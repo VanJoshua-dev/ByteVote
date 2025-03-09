@@ -10,9 +10,6 @@ const Votes = () => {
   const userId = localStorage.getItem("user_id");
   const role = localStorage.getItem("role");
   const username = localStorage.getItem("user_name");
-  console.log(userId);
-  console.log(role);
-  console.log(username);
   return (
     <div className="">
       <div className="headerContainer p-2 bg-orange-400">

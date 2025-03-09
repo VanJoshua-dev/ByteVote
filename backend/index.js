@@ -1,59 +1,61 @@
 
-require('dotenv').config();
+require("dotenv").config();
 
 const bcrypt = require("bcryptjs");
-const express = require('express');
-const mysql = require('mysql2/promise');
-const cors = require('cors');
+const express = require("express");
+const mysql = require("mysql2/promise");
+const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const path = require('path');
-const fs = require('fs');
-console.log("JWT Secret:", process.env.JWT_SECRET);
+const path = require("path");
+const fs = require("fs");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
-// Middleware
+
+// ✅ CORS Configuration
 const corsOptions = {
-    origin: "*", // Allow only your frontend
-    methods: "GET, POST, PUT, DELETE, OPTIONS",
+    origin: "*",
+    methods: "GET, POST, PATCH, DELETE, OPTIONS",
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true // ✅ Allow credentials (important for cookies/JWTs)
+    credentials: true,
 };
 app.use(cors(corsOptions));
-
-// ✅ Handle preflight requests
 app.options("*", (req, res) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Origin", "https://bytevote.onrender.com");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Credentials", "true");
     res.sendStatus(200);
 });
-app.use(express.json()); // Parse JSON request bodies
+
+// ✅ Middleware to Parse JSON & URL Encoded Data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use("/public", express.static(path.join(__dirname, "public")));
-const sslCertPath = path.join(__dirname, "DigiCertGlobalRootCA.crt.pem"); // ✅ Correct relative path
+
+// ✅ SSL Certificate for Azure MySQL
+const sslCertPath = path.join(__dirname, "DigiCertGlobalRootCA.crt.pem");
 const serverCa = [fs.readFileSync(sslCertPath, "utf8")];
-const conn=mysql.createPool({
-    host:"bytevote.mysql.database.azure.com",
-    user:"bytevote_2025",
-    password:"Bytevote_25",
-    database:"db_votingsystem",
-    port:3306,
-    ssl: {
-        rejectUnauthorized: true,
-        ca: serverCa
-    }
-});
-// Connect to database
-conn.getConnection((err) => {
-    if (err) {
-        console.error('Error: Database connection failed:', err.message);
-        
-        return;
-    }
-    console.log('Success: Connected to Azure MySQL database.');
+
+// ✅ Database Connection (Better Handling)
+const conn = mysql.createPool({
+    host: "bytevote.mysql.database.azure.com",
+    user: "bytevote_2025",
+    password: "Bytevote_25",
+    database: "db_votingsystem",
+    port: 3306,
+    ssl: { ca: serverCa }, // ✅ Removed `rejectUnauthorized: true`
 });
 
-//Middleware
+// ✅ Verify Token Middleware
+conn.getConnection((err) => {
+    if (err) {
+        console.error("Error: Database connection failed:", err.message);
+        return;
+    }
+    console.log("Success: Connected to Azure MySQL database.");
+});
+
+// ✅ Middleware: Verify JWT Token
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     console.log("Auth Header:", authHeader);
@@ -75,6 +77,18 @@ const verifyToken = (req, res, next) => {
         next();
     });
 };
+
+// ✅ Middleware: Admin Check
+const isAdmin = (req, res, next) => {
+    if (req.user.role !== "admin") {
+        return res.status(403).json({ error: "Access denied. Admins only." });
+    }
+    next();
+};
+// app.use((req, res, next) => {
+//     console.log(`Received ${req.method} request to ${req.path}`);
+//     next();
+// });
 app.get("/api/test-db", async (req, res) => {
     try {
         const [results] = await conn.query("SELECT NOW() AS currentTime");
@@ -84,239 +98,168 @@ app.get("/api/test-db", async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-//Restrict Access to Admins Only
-const isAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ error: 'Access denied. Admins only.' });
-    }
-    next();
-};
-// 🌟 API Endpoints
 
 // 🏠 Home Route (Test API)
 app.get('/', (req, res) => {
-    res.send("BYTEVote is working");  
+    res.send("BYTEVote is working Hello world!!!!");  
 });
 
-app.post('/api/login', async (req, res) => {
+
+
+app.post("/api/login", async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-        return res.status(400).json({ error: 'Username and Password are required' });
+        return res.status(400).json({ error: "Username and password are required." });
     }
 
     try {
-        // Check voters table
-        const [voterResults] = await conn.promise().query('SELECT * FROM voters WHERE username = ?', [username]);
-
-        if (voterResults.length > 0) {
-            const voter = voterResults[0];
-            const isMatch = await bcrypt.compare(password, voter.password);
-
-            if (!isMatch) {
-                return res.status(401).json({ error: 'Invalid username or password' });
-            }
-
-            const token = jwt.sign(
-                { id: voter.voter_id, role: voter.role, user: voter.username, avatar: voter.avatar },
-                process.env.JWT_SECRET,
-                { expiresIn: "5h" }
-            );
-
-            return res.json({ message: "✅ Voter login successful!", token, role: voter.role, user: voter.username, avatar: voter.avatar, voterID: voter.voter_id });
-        }
-
-        // Check admin table
-        const [adminResults] = await pool.promise().query('SELECT * FROM admin WHERE username = ?', [username]);
+        // ✅ Check Admin Table First
+        const [adminResults] = await conn.query("SELECT * FROM admin WHERE username = ?", [username]);
 
         if (adminResults.length > 0) {
             const admin = adminResults[0];
+
             const isMatch = await bcrypt.compare(password, admin.password);
+            if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
 
-            if (!isMatch) {
-                return res.status(401).json({ error: 'Invalid username or password' });
-            }
+            const token = jwt.sign({ id: admin.admin_id, role: "admin", user: admin.username }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-            const token = jwt.sign(
-                { id: admin.admin_id, role: admin.role, user: admin.username },
-                process.env.JWT_SECRET,
-                { expiresIn: "5h" }
-            );
-
-            return res.json({ message: "✅ Admin login successful!", token, role: admin.role, user: admin.username });
+            return res.json({ message: "Admin login successful", token, role: "admin", user: admin.username });
         }
 
-        // If not found in either table
-        return res.status(401).json({ error: 'Invalid username or password' });
+        // ✅ Check Voter Table (Only if Admin Not Found)
+        const [voterResults] = await conn.query("SELECT * FROM voters WHERE username = ?", [username]);
 
+        if (voterResults.length > 0) {
+            const voter = voterResults[0];
+
+            const isMatch = await bcrypt.compare(password, voter.password);
+            if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
+
+            const token = jwt.sign({ id: voter.voter_id, role: "voter" }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+            return res.json({ message: "Voter login successful", token, role: "voter", id: voter.voter_id, user: voter.username, avatar: voter.avatar});
+        }
+
+        return res.status(404).json({ error: "User not found" });
     } catch (error) {
-        console.error('Database Query Error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error("Login Error:", error.message);
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-//register
-app.post('/api/signup', async (req, res) => {
-    const { firstname, lastname, lrn, gender, username, password } = req.body;
 
-    if (!firstname || !lastname || !lrn || !gender || !username || !password) {
-        return res.status(400).json({ error: 'All fields are required' });
-    }
+// fetch dashboard
+app.get('/api/adminDashboard', verifyToken, isAdmin, async (req, res) => {
+    try {
+        const { data } = req.query;
 
-    // Check if username already exists
-    db.query('SELECT * FROM voters WHERE username = ?', [username], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        if (results.length > 0) {
-            return res.status(400).json({ error: 'Username is already taken' });
+        let sql;
+        switch (data) {
+            case 'voters':
+                sql = `SELECT COUNT(*) AS count FROM voters`;
+                break;
+            case 'votedVoters':
+                sql = `SELECT COUNT(*) AS count FROM voters WHERE voted = 1`;
+                break;
+            case 'votes':
+                sql = `SELECT COUNT(*) AS count FROM votes`;
+                break;
+            case 'positions':
+                sql = `SELECT COUNT(*) AS count FROM positions`;
+                break;
+            case 'candidates':
+                sql = `SELECT COUNT(*) AS count FROM candidates`;
+                break;
+            case 'elections':
+                sql = `SELECT COUNT(*) AS count FROM elections WHERE status = 'active'`;
+                break;
+            default:
+                return res.status(400).json({ error: "Invalid request type." });
         }
 
-        // Check if LRN is unique
-        db.query('SELECT * FROM voters WHERE lrn = ?', [lrn], async (err, lrnResults) => {
-            if (err) return res.status(500).json({ error: err.message });
+        const [result] = await conn.query(sql); // ✅ Using promise-based query
+        res.json({ count: result[0].count }); // ✅ Returning as JSON object
 
-            if (lrnResults.length > 0) {
-                return res.status(400).json({ error: 'LRN is already registered' });
+    } catch (error) {
+        console.error("Error fetching admin dashboard data:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+//fetch Vote Counts
+app.get("/api/getVoteCounts", (req, res) => {
+    const sql = `
+        SELECT 
+            p.position_id, 
+            p.position_name, 
+            c.candidate_id, 
+            CONCAT(c.firstname, ' ', c.lastname) AS candidate_name, 
+            COALESCE(COUNT(v.vote_id), 0) AS votes
+        FROM positions p
+        LEFT JOIN candidates c ON p.position_id = c.position_id
+        LEFT JOIN votes v ON c.candidate_id = v.candidate_id
+        GROUP BY p.position_id, p.position_name, c.candidate_id, c.firstname, c.lastname
+        ORDER BY p.position_id, votes DESC;
+    `;
+
+    conn.getConnection((err, connection) => {
+        if (err) {
+            console.error("Error connecting to database:", err);
+            return res.status(500).json({ error: "Database connection failed" });
+        }
+
+        connection.query(sql, (queryErr, results) => {
+            connection.release(); // ✅ Always release the connection
+
+            if (queryErr) {
+                console.error("Error fetching vote counts:", queryErr);
+                return res.status(500).json({ error: "Internal server error" });
             }
 
-            //Hash password before storing
-            const hashedPassword = await bcrypt.hash(password, 10);
-            let profilePictureOptions = [];
-            switch (gender) {
-                case 'Male':
-                    profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
-                    break;
-                case 'Female':
-                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
-                    break;
-                default:
-                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
-                    break;
-            }
+            // ✅ Ensure positions are always included, even if they have no candidates
+            const groupedResults = results.reduce((acc, row) => {
+                let position = acc.find((p) => p.position_id === row.position_id);
+                if (!position) {
+                    position = {
+                        position_id: row.position_id,
+                        position_name: row.position_name,
+                        candidates: [],
+                    };
+                    acc.push(position);
+                }
 
-            // Select a random profile picture
-            const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
-            // Insert user into the database
-            const sql = 'INSERT INTO voters (firstname, lastname, lrn, gender, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)';
-            db.query(sql, [firstname, lastname, lrn, gender, username, hashedPassword, profilePicture], (err, result) => {
-                if (err) return res.status(500).json({ error: err.message });
+                // ✅ Ensure candidates are only added if they exist
+                if (row.candidate_id) {
+                    position.candidates.push({
+                        candidate_id: row.candidate_id,
+                        candidate_name: row.candidate_name,
+                        votes: row.votes,
+                    });
+                }
 
-                res.json({ message: '✅ Registration successful! You can now log in.' });
-            });
+                return acc;
+            }, []);
+
+            res.json(groupedResults);
         });
     });
 });
 
 
-// 🗳️ Submit a Vote
-app.post('/api/election', (req, res) => {
-    const { voter_id, candidate_id } = req.body;
-
-    if (!voter_id || !candidate_id) {
-        return res.status(400).json({ error: 'Voter ID and Candidate ID are required' });
-    }
-
-    const sql = 'INSERT INTO votes (voter_id, candidate_id) VALUES (?, ?)';
-    db.query(sql, [voter_id, candidate_id], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: '✅ Vote cast successfully!' });
-    });
-});
-
-// fetch dashboard
-app.get('/api/adminDashboard', verifyToken, isAdmin, (req, res) => {
-    const { data } = req.query;
-
-
-    let sql;
-
-    switch (data) {
-        case 'voters':
-            sql = `SELECT COUNT(*) AS count FROM voters`;
-            break;
-        case 'votedVoters':
-            sql = `SELECT COUNT(*) AS count FROM voters WHERE voted = 1`;
-            break;
-        case 'votes':
-            sql = `SELECT COUNT(*) AS count FROM votes`;
-            break;
-        case 'positions':
-            sql = `SELECT COUNT(*) AS count FROM positions`;
-            break;
-        case 'candidates':
-            sql = `SELECT COUNT(*) AS count FROM candidates`;
-            break;
-        case 'elections':
-            sql = `SELECT COUNT(*) AS count FROM elections WHERE status = 'active'`;
-            break;
-        default:
-            return res.status(400).json({ error: "Invalid request type." });
-    }
-
-    db.query(sql, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(result);
-    });
-});
-//fetch Vote Counts
-app.get("/api/getVoteCounts", (req, res) => {
-    const sql = `
-      SELECT 
-    p.position_id, 
-    p.position_name, 
-    c.candidate_id, 
-    CONCAT(c.firstname, ' ', c.lastname) AS candidate_name, 
-    COUNT(v.vote_id) AS votes
-    FROM positions p
-    LEFT JOIN candidates c ON p.position_id = c.position_id
-    LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-    GROUP BY p.position_id, c.candidate_id
-    ORDER BY p.position_id, votes DESC;
-    `;
-  
-    db.query(sql, (err, results) => {
-      if (err) {
-        console.error("Error fetching vote counts:", err);
-        return res.status(500).json({ error: "Internal server error" });
-      }
-  
-      // Format results to group by position
-      const groupedResults = results.reduce((acc, row) => {
-        let position = acc.find((p) => p.position_id === row.position_id);
-        if (!position) {
-          position = {
-            position_id: row.position_id,
-            position_name: row.position_name,
-            candidates: [],
-          };
-          acc.push(position);
-        }
-  
-        if (row.candidate_id) {
-          position.candidates.push({
-            candidate_id: row.candidate_id,
-            candidate_name: row.candidate_name,
-            votes: row.votes,
-          });
-        }
-  
-        return acc;
-      }, []);
-  
-      res.json(groupedResults);
-    });
-  });
-
 //fetch voters
-app.get('/api/getVoters', verifyToken, isAdmin, (req, res) => {
-    const sql = `
-   SELECT * FROM voters;
-  `;
-    db.query(sql, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(result);
-    });
+app.get('/api/getVoters', verifyToken, isAdmin, async (req, res) => {
+    try {
+        const sql = `SELECT * FROM voters`;
+        const [result] = await conn.query(sql); // ✅ Uses async/await instead of callback
+
+        res.json({ success: true, voters: result });
+    } catch (err) {
+        console.error("Database Error:", err);
+        res.status(500).json({ error: "Failed to fetch voters" });
+    }
 });
+
 //fetch voters
 
 
@@ -331,35 +274,29 @@ app.post("/api/addVoter", verifyToken, isAdmin, async (req, res) => {
 
     try {
         // Check if LRN already exists
-        const checkLRNSql = "SELECT * FROM voters WHERE LRN = ?";
-        db.query(checkLRNSql, [LRN], async (err, results) => {
-          if (err) {
-            console.error("Database Error:", err);
-            return res.status(500).json({ message: "Database error" });
-          }
-    
-          if (results.length > 0) {
+        const checkLRNSql = "SELECT 1 FROM voters WHERE LRN = ?";
+        const [existingVoter] = await conn.execute(checkLRNSql, [LRN]);
+
+        if (existingVoter.length > 0) {
             return res.status(409).json({ message: "LRN already exists" }); // 409 Conflict
-          }
-    
-          // If LRN does not exist, insert new voter
-          const hashedPassword = await bcrypt.hash(password, 10);
-          const insertSql = `INSERT INTO voters (firstname, lastname, LRN, gender, username, password) VALUES (?, ?, ?, ?, ?, ?)`;
-          const values = [firstname, lastname, LRN, gender, username, hashedPassword];
-    
-          db.query(insertSql, values, (err, result) => {
-            if (err) {
-              console.error("Database Error:", err);
-              return res.status(500).json({ message: "Database error" });
-            }
-            res.status(201).json({ message: "Voter added successfully", id: result.insertId });
-          });
-        });
-    
-      } catch (error) {
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert new voter
+        const insertSql = `
+            INSERT INTO voters (firstname, lastname, LRN, gender, username, password) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const [result] = await conn.execute(insertSql, [firstname, lastname, LRN, gender, username, hashedPassword]);
+
+        res.status(201).json({ message: "Voter added successfully", id: result.insertId });
+
+    } catch (error) {
         console.error("Error:", error);
         res.status(500).json({ message: "Server error" });
-      }
+    }
 });
 
 app.patch('/api/editVoter', verifyToken, isAdmin, async (req, res) => {
@@ -370,261 +307,391 @@ app.patch('/api/editVoter', verifyToken, isAdmin, async (req, res) => {
     }
 
     try {
+        // Check if new LRN already exists for a different voter
+        const checkLRNSql = "SELECT 1 FROM voters WHERE LRN = ? AND voter_id != ?";
+        const [existingLRN] = await conn.execute(checkLRNSql, [newLRN, voter_id]);
+
+        if (existingLRN.length > 0) {
+            return res.status(409).json({ message: "LRN is already assigned to another voter" });
+        }
+
         let updateSql;
         let values;
 
         if (!newPassword) {
-            updateSql = `UPDATE voters SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ? WHERE voter_id = ?`;
+            updateSql = `
+                UPDATE voters 
+                SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ? 
+                WHERE voter_id = ?
+            `;
             values = [new_Firstname, new_Lastname, newLRN, newGender, newUsername, voter_id];
         } else {
             const hashedPassword = await bcrypt.hash(newPassword, 10);
-            updateSql = `UPDATE voters SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ?, password = ? WHERE voter_id = ?`;
+            updateSql = `
+                UPDATE voters 
+                SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ?, password = ? 
+                WHERE voter_id = ?
+            `;
             values = [new_Firstname, new_Lastname, newLRN, newGender, newUsername, hashedPassword, voter_id];
         }
 
-        db.query(updateSql, values, (err, result) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: "Voter updated successfully", result });
-        });
-    } catch (e) {
-        console.error("Error:", e);
+        const [result] = await conn.execute(updateSql, values);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Voter not found or no changes made" });
+        }
+
+        res.json({ message: "Voter updated successfully" });
+
+    } catch (error) {
+        console.error("Error:", error);
         res.status(500).json({ message: "Server error" });
     }
 });
 
 //delete voters
 
-app.delete('/api/deleteVoter', verifyToken, isAdmin, async (req, res) => {
-    const { voterID } = req.body;
+app.delete('/api/deleteVoter/:id', verifyToken, isAdmin, async (req, res) => {
+    const { id } = req.params;
 
-    if (!voterID) {
+    if (!id) {
         return res.status(400).json({ message: "Voter ID is required" });
     }
 
     try {
-        const deleteSql = "DELETE FROM voters WHERE voter_id =?";
-        db.query(deleteSql, [voterID], (err, result) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: "Voter deleted successfully" });
-        });
-    } catch (e) {
-        console.error("Error:", e);
+        // Check if voter exists before deleting
+        const checkSql = "SELECT 1 FROM voters WHERE voter_id = ?";
+        const [existingVoter] = await conn.execute(checkSql, [id]);
+
+        if (existingVoter.length === 0) {
+            return res.status(404).json({ message: "Voter not found" });
+        }
+
+        // Delete the voter
+        const deleteSql = "DELETE FROM voters WHERE voter_id = ?";
+        const [result] = await conn.execute(deleteSql, [id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Voter not found" });
+        }
+
+        res.json({ message: "Voter deleted successfully" });
+
+    } catch (error) {
+        console.error("Error:", error);
         res.status(500).json({ message: "Server error" });
     }
 });
 
 //fetch position 
 
-app.get('/api/getPositions', verifyToken, isAdmin, (req, res) => {
-    const sql = 'SELECT * FROM positions';
-    db.query(sql, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(result);
-    });
+app.get('/api/getPositions', verifyToken, isAdmin, async (req, res) => {
+    try {
+        const sql = 'SELECT * FROM positions';
+        const [rows] = await conn.execute(sql); // ✅ Use `execute()` for MySQL2
+        res.json(rows);
+    } catch (err) {
+        console.error("Error fetching positions:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 //edit postion
 
 app.patch('/api/editPosition', verifyToken, isAdmin, async (req, res) => {
-    const { positionID, newPosName } = req.body;
+    try {
+        const { positionID, newPosName } = req.body;
 
-    if (!positionID || !newPosName) {
-        return res.status(400).json({ message: "All fields are required" });
-    }
+        if (!positionID || !newPosName) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
 
-    const sql = 'UPDATE positions SET position_name = ? WHERE position_id = ?';
-
-    db.query(sql, [newPosName, positionID], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+        const sql = 'UPDATE positions SET position_name = ? WHERE position_id = ?';
+        const [result] = await conn.execute(sql, [newPosName, positionID]); // ✅ Use `execute()`
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Position not found" });
         }
 
-        res.json({ message: "Position updated successfully", result });
-    });
+        res.json({ message: "Position updated successfully" });
+    } catch (err) {
+        console.error("Error updating position:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 //delete positions
 app.delete('/api/deletePosition', verifyToken, isAdmin, async (req, res) => {
-    const { positionID } = req.body;
+    try {
+        const { positionID } = req.body;
 
-    if (!positionID) {
-        return res.status(400).json({ message: "Position ID is required" });
-    }
+        if (!positionID) {
+            return res.status(400).json({ message: "Position ID is required" });
+        }
 
-    const sql = 'DELETE FROM positions WHERE position_id =?';
-
-    db.query(sql, [positionID], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+        const sql = 'DELETE FROM positions WHERE position_id = ?';
+        const [result] = await conn.execute(sql, [positionID]); // ✅ Use `execute()`
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Position not found" });
         }
 
         res.json({ message: "Position deleted successfully" });
-    });
+    } catch (err) {
+        console.error("Error deleting position:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 //Add position 
-app.post("/api/addPosition", verifyToken, isAdmin, (req, res) => {
-    const { positionName } = req.body;
-    if (!positionName) {
-        return res.status(400).json({ message: "Position name is required" });
-    }
+app.post("/api/addPosition", verifyToken, isAdmin, async (req, res) => {
+    try {
+        let { positionName } = req.body;
 
-    const sql = 'INSERT INTO positions (position_name) VALUES (?)';
-    db.query(sql, [positionName], (err, result) => {
-        if (err) {
-            if (err.code === 'ER_DUP_ENTRY') {
-                return res.status(400).json({ message: "Position already exists" });
-            }
-            return res.status(500).json({ error: err.message });
+        if (!positionName) {
+            return res.status(400).json({ message: "Position name is required" });
         }
+
+        positionName = positionName.trim(); // ✅ Trim whitespace
+        if (positionName.length === 0) {
+            return res.status(400).json({ message: "Position name cannot be empty" });
+        }
+
+        const sql = 'INSERT INTO positions (position_name) VALUES (?)';
+
+        const [result] = await conn.execute(sql, [positionName]); // ✅ Use `execute()`
+
         res.json({ message: "Position added successfully", id: result.insertId });
-    });
+    } catch (err) {
+        console.error("Error adding position:", err);
+        
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ message: "Position already exists" });
+        }
+
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 
 
 // fetch voters voted
-app.get('/api/getCandidates', verifyToken, isAdmin, (req, res) => {
-    const sql = "SELECT c.candidate_id, c.firstname, c.lastname, c.gender, c.avatar , p.position_name AS position, c.credibility, c.platform FROM candidates c JOIN positions p ON c.position_id = p.position_id;";
-    db.query(sql, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+app.get('/api/getCandidates', verifyToken, isAdmin, async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                c.candidate_id, 
+                c.firstname, 
+                c.lastname, 
+                c.gender, 
+                c.avatar,  
+                p.position_name AS position, 
+                c.credibility, 
+                c.platform 
+            FROM candidates c 
+            JOIN positions p ON c.position_id = p.position_id;
+        `;
+
+        const [result] = await conn.execute(sql); // ✅ Use `execute()` instead of `query()`
         res.json(result);
-    });
+    } catch (err) {
+        console.error("Error fetching candidates:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
 
 //add candidate
-app.post("/api/addCandidate",verifyToken, isAdmin, (req, res) => {
-    const { firstName, lastName, gender, candidatePosition, credibility, platform } = req.body;
+app.post("/api/addCandidate", verifyToken, isAdmin, async (req, res) => {
+    try {
+        const { firstName, lastName, gender, candidatePosition, credibility, platform } = req.body;
 
-    if (!firstName || !lastName || !gender || !candidatePosition || !credibility || !platform) {
-        return res.status(400).json({ message: "All fields are required" });
-    }
-
-    const sql = "INSERT INTO candidates (firstname, lastname, gender, position_id, credibility, platform, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)";
-    let profilePictureOptions = [];
-            switch (gender) {
-                case 'Male':
-                    profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
-                    break;
-                case 'Female':
-                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
-                    break;
-                default:
-                    profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
-                    break;
-            }
-
-            // Select a random profile picture
-    const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
-    db.query(sql, [firstName, lastName, gender, candidatePosition, credibility, platform, profilePicture], (err, result) => {
-        if (err) {
-            console.error("Error inserting candidate:", err);
-            return res.status(500).json({ message: "Database error" });
+        // Validate required fields
+        if (!firstName || !lastName || !gender || !candidatePosition || !credibility || !platform) {
+            return res.status(400).json({ message: "All fields are required" });
         }
+
+        // Normalize gender input (make it case-insensitive)
+        const normalizedGender = gender.toLowerCase();
+
+        // Default profile pictures
+        let profilePictureOptions = [];
+        switch (normalizedGender) {
+            case 'male':
+                profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                break;
+            case 'female':
+                profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
+                break;
+            default:
+                profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                break;
+        }
+
+        // Select a random profile picture
+        const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
+
+        // Check if the position ID exists before inserting
+        const checkPositionSQL = "SELECT * FROM positions WHERE position_id = ?";
+        const [positionResult] = await conn.execute(checkPositionSQL, [candidatePosition]);
+        
+        if (positionResult.length === 0) {
+            return res.status(400).json({ message: "Invalid position ID" });
+        }
+
+        // Insert candidate
+        const insertSQL = "INSERT INTO candidates (firstname, lastname, gender, position_id, credibility, platform, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        const [result] = await conn.execute(insertSQL, [firstName, lastName, gender, candidatePosition, credibility, platform, profilePicture]);
+
         res.status(201).json({ message: "Candidate added successfully", candidateId: result.insertId });
-    });
+    } catch (err) {
+        console.error("Error inserting candidate:", err);
+        res.status(500).json({ message: "Database error" });
+    }
 });
 //edit candidate
-app.patch("/api/editCandidate", verifyToken, isAdmin, (req, res) => {
-   const {candidate_id, new_FirstName, new_LastName, new_Position, new_Gender, new_Credibility, new_Platform} = req.body;
-    console.log(candidate_id);
-    console.log(new_FirstName);
-    console.log(new_LastName);
-    console.log(new_Position);
-    console.log(new_Gender);
-    console.log(new_Credibility);
-    console.log(new_Platform);
+app.patch("/api/editCandidate", verifyToken, isAdmin, async (req, res) => {
+    try {
+        const { candidate_id, new_FirstName, new_LastName, new_Position, new_Gender, new_Credibility, new_Platform } = req.body; // Use the correct field names
 
-   if ( !candidate_id || !new_FirstName || !new_LastName || !new_Position || !new_Gender || !new_Credibility || !new_Platform) {
-        return res.status(400).json({ message: "❌ All fields are required" });
+        console.log(candidate_id, new_FirstName, new_LastName, new_Position, new_Gender, new_Credibility, new_Platform);
+
+        // Check if all required fields are present
+        if (!candidate_id || !new_FirstName || !new_LastName || !new_Position || !new_Gender || !new_Credibility || !new_Platform) {
+            return res.status(400).json({ message: "❌ All fields are required" });
+        }
+
+        // Normalize gender input (convert to lowercase for consistency)
+        const normalizedGender = new_Gender.toLowerCase();
+
+        // Validate if candidate exists
+        const checkCandidateSQL = "SELECT * FROM candidates WHERE candidate_id = ?";
+        const [candidateResult] = await conn.execute(checkCandidateSQL, [candidate_id]);
+
+        if (candidateResult.length === 0) {
+            return res.status(404).json({ message: "❌ Candidate not found" });
+        }
+
+        // Validate if position exists
+        const checkPositionSQL = "SELECT * FROM positions WHERE position_id = ?";
+        const [positionResult] = await conn.execute(checkPositionSQL, [new_Position]);
+
+        if (positionResult.length === 0) {
+            return res.status(400).json({ message: "❌ Invalid position ID" });
+        }
+
+        // Update candidate
+        const updateSQL = `
+            UPDATE candidates 
+            SET firstname = ?, lastname = ?, gender = ?, position_id = ?, credibility = ?, platform = ? 
+            WHERE candidate_id = ?
+        `;
+        const [updateResult] = await conn.execute(updateSQL, [new_FirstName, new_LastName, normalizedGender, new_Position, new_Credibility, new_Platform, candidate_id]);
+
+        if (updateResult.affectedRows === 0) {
+            return res.status(404).json({ message: "❌ Candidate update failed" });
+        }
+
+        res.status(200).json({ message: "✅ Candidate updated successfully" });
+    } catch (err) {
+        console.error("Error updating candidate:", err);
+        res.status(500).json({ message: "❌ Database error" });
     }
-
-    const sql = `
-        UPDATE candidates 
-        SET firstname = ?, lastname = ?, gender = ?, position_id = ?, credibility = ?, platform = ? 
-        WHERE candidate_id = ?
-    `;
-
-    db.query(sql, [new_FirstName, new_LastName, new_Gender, new_Position, new_Credibility, new_Platform, candidate_id], (err, result) => {
-        if (err) {
-            console.error("Error updating candidate:", err);
-            return res.status(500).json({ message: "Database error" });
-        }
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Candidate not found" });
-        }
-        res.status(200).json({ message: "Candidate updated successfully" });
-    });
 });
+
 //delete candidate
-app.delete("/api/deleteCandidate", verifyToken, isAdmin, (req, res) => {
-    const { candidateID } = req.body;
-    if (!candidateID) {
-        return res.status(400).json({ message: "❗ Candidate ID is required" });
-    }
-    const sql = "DELETE FROM candidates WHERE candidate_id = ?";
-    db.query(sql, [candidateID], (err, result) => {
-        if (err) {
-            console.error("❌ Error deleting candidate:", err);
-            return res.status(500).json({ message: "❌ Database error" });
+app.delete("/api/deleteCandidate/:candidateID", verifyToken, isAdmin, async (req, res) => {
+    try {
+        const { candidateID } = req.params; // Use params instead of body
+
+        if (!candidateID) {
+            return res.status(400).json({ message: "❗ Candidate ID is required" });
         }
-        res.status(201).json({ message: "✅ Candidate added successfully"});
-    });
-})
+
+        // Check if the candidate exists
+        const checkSQL = "SELECT * FROM candidates WHERE candidate_id = ?";
+        const [candidateResult] = await conn.execute(checkSQL, [candidateID]);
+
+        if (candidateResult.length === 0) {
+            return res.status(404).json({ message: "❌ Candidate not found" });
+        }
+
+        // Delete the candidate
+        const deleteSQL = "DELETE FROM candidates WHERE candidate_id = ?";
+        await conn.execute(deleteSQL, [candidateID]);
+
+        res.status(200).json({ message: "✅ Candidate deleted successfully" });
+    } catch (err) {
+        console.error("❌ Error deleting candidate:", err);
+        res.status(500).json({ message: "❌ Database error" });
+    }
+});
+
 // Fetch Votes (With Optional Search)
 app.get("/api/votes", (req, res) => {
     const searchQuery = req.query.search ? `%${req.query.search}%` : "%";
 
     const sql = `
       SELECT 
-    v.vote_id, 
-    CONCAT(c.firstname, ' ', c.lastname) AS candidate_name, 
-    p.position_name, 
-    v.vote_time
-    FROM votes v
-    JOIN candidates c ON v.candidate_id = c.candidate_id
-    JOIN positions p ON v.position_id = p.position_id
-    WHERE CONCAT(c.firstname, ' ', c.lastname) LIKE '%' OR p.position_name LIKE '%';
+        v.vote_id, 
+        CONCAT(c.firstname, ' ', c.lastname) AS candidate_name, 
+        p.position_name, 
+        v.vote_time
+      FROM votes v
+      JOIN candidates c ON v.candidate_id = c.candidate_id
+      JOIN positions p ON c.position_id = p.position_id
+      WHERE CONCAT(c.firstname, ' ', c.lastname) LIKE ? OR p.position_name LIKE ?;
     `;
 
-    db.query(sql, [searchQuery, searchQuery], (err, results) => {
+    conn.query(sql, [searchQuery, searchQuery], (err, results) => {
         if (err) {
-            console.error("Database Error:", err); // Log for debugging
+            console.error("Database Error:", err); // Log error for debugging
             return res.status(500).json({ error: "Internal Server Error" });
         }
 
         // Ensure response is always an array
-        res.json(Array.isArray(results) ? results : []);
+        res.json(results || []);
     });
 });
-
 // Delete a Vote
 app.delete("/api/votes/:id", (req, res) => {
-    const voteId = req.params.id;
+    const voteId = parseInt(req.params.id, 10);
+
+    // Validate that voteId is a number
+    if (isNaN(voteId)) {
+        return res.status(400).json({ error: "Invalid vote ID" });
+    }
+
     const sql = "DELETE FROM votes WHERE vote_id = ?";
 
-    db.query(sql, [voteId], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+    conn.query(sql, [voteId], (err, result) => {
+        if (err) {
+            console.error("Database Error:", err); // Log error for debugging
+            return res.status(500).json({ error: "Internal Server Error" });
+        }
+        
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Vote not found" });
         }
+
         res.json({ message: "Vote deleted successfully" });
     });
 });
 
 // Reset Votes (Delete All Votes)
-app.post("/api/votes/reset", (req, res) => {
+app.post("/api/votesReset", (req, res) => {
     const { confirm } = req.body;
+
     if (confirm !== "RESET_VOTES") {
         return res.status(400).json({ error: "Invalid reset confirmation" });
     }
 
-    const sql = "DELETE FROM votes";
-    db.query(sql, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+    const sql = "TRUNCATE TABLE votes"; // Faster than DELETE
+
+    conn.query(sql, (err, result) => {
+        if (err) {
+            console.error("Database Error:", err); // Debugging log
+            return res.status(500).json({ error: "Internal Server Error" });
+        }
+
         res.json({ message: "All votes reset successfully" });
     });
 });
@@ -633,122 +700,180 @@ app.post("/api/votes/reset", (req, res) => {
 //fetch votes in each candidates in each position
 app.get('/api/voteTally', (req, res) => {
     const query = `
-        SELECT p.position_name AS position, c.firstname AS name, COUNT(v.vote_id) AS vote 
-        FROM votes v 
-        JOIN candidates c ON v.candidate_id = c.candidate_id 
-        JOIN positions p ON c.position_id = p.position_id
-        GROUP BY p.position_name, c.candidate_id;
+        SELECT 
+            p.position_id,
+            p.position_name AS position, 
+            c.candidate_id,
+            CONCAT(c.firstname, ' ', c.lastname) AS name, 
+            COALESCE(COUNT(v.vote_id), 0) AS vote 
+        FROM positions p
+        LEFT JOIN candidates c ON p.position_id = c.position_id
+        LEFT JOIN votes v ON c.candidate_id = v.candidate_id
+        GROUP BY p.position_id, p.position_name, c.candidate_id, c.firstname, c.lastname
+        ORDER BY p.position_id, vote DESC;
     `;
 
-    db.query(query, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    conn.query(query, (err, results) => {
+        if (err) {
+            console.error("Error fetching vote tally:", err);
+            return res.status(500).json({ error: "Internal server error" });
+        }
 
-        // Transform results into a structured format { position: [...candidates] }
+        // ✅ Transform results into an array of positions, each with a list of candidates
         const groupedResults = results.reduce((acc, row) => {
-            if (!acc[row.position]) acc[row.position] = [];
-            acc[row.position].push({ name: row.name, vote: row.vote });
+            let position = acc.find((p) => p.position_id === row.position_id);
+            if (!position) {
+                position = {
+                    position_id: row.position_id,
+                    position_name: row.position,
+                    candidates: [],
+                };
+                acc.push(position);
+            }
+
+            // ✅ Ensure candidates are always included
+            if (row.candidate_id) {
+                position.candidates.push({
+                    candidate_id: row.candidate_id,
+                    name: row.name,
+                    vote: row.vote,
+                });
+            }
+
             return acc;
-        }, {});
+        }, []);
 
         res.json(groupedResults);
     });
 });
 
 
+
 //creating a election
-app.post("/api/createElection", verifyToken, isAdmin, (req, res) => {
-    const { title, desc, endDate } = req.body;
-    if (!title || !desc || !endDate) {
-        return res.status(400).json({ error: 'All fields are required' });
+app.post("/api/createElection", verifyToken, isAdmin, async (req, res) => {
+    try {
+        const { title, desc, endDate } = req.body;
+
+        // Check for missing fields
+        if (!title?.trim() || !desc?.trim() || !endDate?.trim()) {
+            return res.status(400).json({ error: "❌ All fields are required" });
+        }
+
+        // Validate date format (YYYY-MM-DD expected)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+            return res.status(400).json({ error: "❌ Invalid date format (YYYY-MM-DD required)" });
+        }
+
+        // Insert into database
+        const sql = "INSERT INTO elections (title, description, end_date) VALUES (?, ?, ?)";
+        const [result] = await conn.execute(sql, [title.trim(), desc.trim(), endDate]);
+
+        res.status(201).json({
+            message: "✅ Election created successfully",
+            election_id: result.insertId,
+        });
+    } catch (err) {
+        console.error("❌ Error creating election:", err);
+        res.status(500).json({ error: "❌ Database error" });
     }
-    const sql = 'INSERT INTO elections (title, description, end_date) VALUES (?,?,?)';
-    db.query(sql, [title, desc, endDate], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.status(201).json({ message: 'Election created successfully', election_id: result.insertId });
-    });
 });
 
 //fetch the election
 
-app.get('/api/getElection', (req, res) => {
-    const sql = 'SELECT * FROM elections WHERE status = "pending" OR status = "active"';
-    db.query(sql, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(results);
-    });
+app.get('/api/getElection', async (req, res) => {
+    try {
+        const sql = `SELECT * FROM elections 
+                     WHERE LOWER(status) IN ("pending", "active") 
+                     ORDER BY start_date DESC`;
+
+        const [results] = await conn.execute(sql);
+
+        if (results.length === 0) {
+            return res.status(200).json([]); // ✅ Returns an empty array instead of 404
+        }
+
+        res.status(200).json(results);
+    } catch (err) {
+        console.error("❌ Error fetching elections:", err);
+        res.status(500).json({ error: "❌ Internal server error" });
+    }
 });
 
-app.get('/api/getActiveElection', (req, res) => {
+
+app.get("/api/getActiveElection", async (req, res) => {
     const sql = 'SELECT * FROM elections WHERE status = "active"';
-    db.query(sql, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const [results] = await conn.query(sql); // ✅ Direct query, no `promise()`
+        
+        if (results.length === 0) {
+            return res.status(404).json({ message: "No active election found." });
+        }
+
         res.json(results);
-    });
+    } catch (error) {
+        console.error("Error fetching active election:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
 //setActive election
 
-app.patch('/api/updateStatus', verifyToken, isAdmin, (req, res) => {
+app.patch('/api/updateStatus', verifyToken, isAdmin, async (req, res) => {
     const { election_ID, status, title, desc } = req.body;
 
     if (!election_ID || !status || !title || !desc) {
         return res.status(400).json({ error: 'Election ID, status, and title are required' });
     }
 
-    if (status === "ended") {
-        // Move election to history
-        const moveToHistorySQL = `
-        INSERT INTO election_history (election_id, election_title, election_desc)
-        VALUES (?,?,?);
-        `;
+    const connection = await conn.getConnection(); // Get a connection from the pool
 
-        console.log("Inserting into election_history:", { election_ID, title, desc }); // Debugging Log
+    try {
+        await connection.beginTransaction(); // Start transaction
 
-        db.query(moveToHistorySQL, [election_ID, title, desc], (err, result) => {
-            if (err) {
-                console.error("Error inserting into election_history:", err);
-                return res.status(500).json({ error: err.message });
-            }
-            const  endedSQL = "UPDATE elections SET status = ? WHERE election_id = ?";
-            db.query(endedSQL, [status, election_ID], (err, result) => {
-                if (err) return res.status(500).json({ error: err.message });
-    
-                if (result.affectedRows === 0) {
-                    return res.status(404).json({ error: 'Election not found' });
-                }
-                console.log(`Election status updated to ${status} successfully`);
-                res.json({ message: `Election status updated to ${status} successfully` });
-            });
-        });
-    } else {
-        // Just update status if not closing the election
-        const updateSQL = 'UPDATE elections SET status = ? WHERE election_id = ?';
+        if (status === "ended") {
+            // Move election to history
+            const moveToHistorySQL = `
+                INSERT INTO election_history (election_id, election_title, election_desc)
+                VALUES (?, ?, ?);
+            `;
 
-        console.log("Updating election status:", { election_ID, status });
+            await connection.execute(moveToHistorySQL, [election_ID, title, desc]);
 
-        db.query(updateSQL, [status, election_ID], (err, result) => {
-            if (err) return res.status(500).json({ error: err.message });
+            const endedSQL = "UPDATE elections SET status = ? WHERE election_id = ?";
+            await connection.execute(endedSQL, [status, election_ID]);
+        } else {
+            // Just update status if not closing the election
+            const updateSQL = "UPDATE elections SET status = ? WHERE election_id = ?";
+            await connection.execute(updateSQL, [status, election_ID]);
+        }
 
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ error: 'Election not found' });
-            }
-            console.log(`Election status updated to ${status} successfully`);
-            res.json({ message: `Election status updated to ${status} successfully` });
-        });
+        await connection.commit(); // Commit transaction
+        res.json({ message: `Election status updated to ${status} successfully` });
+    } catch (err) {
+        await connection.rollback(); // Rollback on error
+        console.error("❌ Error updating election status:", err);
+        res.status(500).json({ error: "Internal server error" });
+    } finally {
+        connection.release(); // Release connection back to the pool
     }
 });
 
+
+
 //fetch history
 
-app.get('/api/getHistory', (req, res) => {
-    const sql = 'SELECT * FROM election_history';
-    db.query(sql, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+app.get('/api/getHistory', async (req, res) => {
+    try {
+        const sql = 'SELECT * FROM election_history';
+        const [results] = await conn.execute(sql); // Use async/await for better handling
         res.json(results);
-    });
+    } catch (err) {
+        console.error("❌ Error fetching election history:", err);
+        res.status(500).json({ error: "❌ Database error", details: err.message });
+    }
 });
 
 //fetch candidate by position
-app.get('/api/election/candidates', (req, res) => {
+app.get('/api/electionCandidates', async (req, res) => {
     const sql = `
       SELECT p.position_id, p.position_name, c.candidate_id, 
              c.firstname, c.lastname, c.gender, c.platform, 
@@ -757,57 +882,145 @@ app.get('/api/election/candidates', (req, res) => {
       LEFT JOIN candidates c ON p.position_id = c.position_id
       ORDER BY p.position_id;
     `;
-  
-    db.query(sql, (err, results) => {
-      if (err) return res.status(500).json({ message: 'Database error', error: err });
-  
-      // Group candidates by position
-      const positionsMap = {};
-      results.forEach((row) => {
-        if (!positionsMap[row.position_id]) {
-          positionsMap[row.position_id] = {
-            position_id: row.position_id,
-            position_name: row.position_name,
-            candidates: [],
-          };
-        }
-        if (row.candidate_id) {
-          positionsMap[row.position_id].candidates.push({
-            candidate_id: row.candidate_id,
-            name: `${row.firstname} ${row.lastname}`,
-            gender: row.gender,
-            platform: row.platform,
-            credibility: row.credibility,
-            avatar: row.avatar,
-          });
-        }
-      });
-  
-      res.json(Object.values(positionsMap));
-    });
-  });
-  //handle vote
-  app.post('/api/election/vote', (req, res) => {
-    const { votes } = req.body;
-  
-    if (!votes || votes.length === 0) {
-      return res.status(400).json({ message: 'No votes provided' });
-    }
-  
-    const sql = `INSERT INTO votes (voter_id, candidate_id, position_id) VALUES ?`;
-    const values = votes.map(vote => [vote.voter_id, vote.candidate_id, vote.position_id]);
-  
-    db.query(sql, [values], (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Database error', error: err });
-      }
-      res.json({ message: 'Vote submitted successfully!' });
-    });
-  });
-//handle login request
 
-app.listen(PORT, () => {
-    console.log(`✅ Server running on http://localhost:${PORT}`);
+    try {
+        const [results] = await conn.execute(sql); // Using `execute()` for async/await support
+
+        // Group candidates by position
+        const positionsMap = {};
+        results.forEach((row) => {
+            if (!positionsMap[row.position_id]) {
+                positionsMap[row.position_id] = {
+                    position_id: row.position_id,
+                    position_name: row.position_name,
+                    candidates: [],
+                };
+            }
+            if (row.candidate_id) {
+                positionsMap[row.position_id].candidates.push({
+                    candidate_id: row.candidate_id,
+                    name: `${row.firstname} ${row.lastname}`,
+                    gender: row.gender,
+                    platform: row.platform,
+                    credibility: row.credibility,
+                    avatar: row.avatar,
+                });
+            }
+        });
+
+        res.json(Object.values(positionsMap)); // Send grouped data
+
+    } catch (err) {
+        console.error("❌ Database error:", err);
+        res.status(500).json({ message: 'Database error', error: err.message });
+    }
+});
+  //handle vote
+  app.post('/api/electionVote', verifyToken, (req, res) => {
+    const { votes } = req.body;
+    const voter_id = req.user.userId; // Extract voter_id from token
+
+    if (!votes || votes.length === 0) {
+        return res.status(400).json({ message: 'No votes provided' });
+    }
+
+    // Start a transaction
+    conn.beginTransaction(async (err) => {
+        if (err) {
+            return res.status(500).json({ message: 'Transaction error', error: err.message });
+        }
+
+        try {
+            const sql = `INSERT INTO votes (voter_id, candidate_id, position_id) VALUES (?, ?, ?)`;
+
+            for (const vote of votes) {
+                // Prevent duplicate votes for the same position
+                const checkSQL = `SELECT * FROM votes WHERE voter_id = ? AND position_id = ?`;
+                const [existingVote] = await conn.execute(checkSQL, [voter_id, vote.position_id]);
+
+                if (existingVote.length > 0) {
+                    throw new Error(`Duplicate vote detected for position ID: ${vote.position_id}`);
+                }
+
+                await conn.execute(sql, [voter_id, vote.candidate_id, vote.position_id]);
+            }
+
+            // Commit transaction
+            conn.commit((commitErr) => {
+                if (commitErr) {
+                    throw commitErr;
+                }
+                res.json({ message: 'Vote submitted successfully!' });
+            });
+        } catch (error) {
+            conn.rollback(() => {
+                res.status(500).json({ message: 'Vote submission failed', error: error.message });
+            });
+        }
+    });
 });
 
-module.exports = app;
+
+ 
+
+
+
+
+
+//register
+app.post('/api/signup', async (req, res) => {
+    try {
+        const { firstname, lastname, lrn, gender, username, password } = req.body;
+
+        // ✅ Check if all required fields are provided
+        if (!firstname || !lastname || !lrn || !gender || !username || !password) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        // ✅ Check if the username already exists
+        const [existingUser] = await conn.query('SELECT * FROM voters WHERE username = ?', [username]);
+        if (existingUser.length > 0) {
+            return res.status(400).json({ error: 'Username is already taken' });
+        }
+
+        // ✅ Check if the LRN is unique
+        const [existingLRN] = await conn.query('SELECT * FROM voters WHERE lrn = ?', [lrn]);
+        if (existingLRN.length > 0) {
+            return res.status(400).json({ error: 'LRN is already registered' });
+        }
+
+        // ✅ Hash password before storing
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // ✅ Assign a random profile picture based on gender
+        let profilePictureOptions = [];
+        switch (gender.toLowerCase()) {
+            case 'male':
+                profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                break;
+            case 'female':
+                profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
+                break;
+            default:
+                profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                break;
+        }
+        const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
+
+        // ✅ Insert user into the database
+        const sql = 'INSERT INTO voters (firstname, lastname, lrn, gender, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        await conn.query(sql, [firstname, lastname, lrn, gender, username, hashedPassword, profilePicture]);
+
+        // ✅ Success Response
+        res.json({ message: '✅ Registration successful! You can now log in.' });
+
+    } catch (error) {
+        console.error('Error during registration:', error.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+app.listen(5000, () => {
+    console.log(`✅ Server running on http://localhost:5000`);
+});

@@ -18,10 +18,13 @@ function Home() {
   const navigate = useNavigate();
   // User data and functions go here
   const token = localStorage.getItem("user_id");
+  console.log(token);
   const role = localStorage.getItem("role");
   const username = localStorage.getItem("user_name");
   const id = localStorage.getItem("voterID");
   const avatar = localStorage.getItem("avatar");
+  console.log("Avatar: " + avatar);
+  
   const [activeElection, setActiveElection] = useState([]);
   const [voteData, setVoteData] = useState([]);
   const [none, setNone] = useState(false);
@@ -43,32 +46,49 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    const fetchActiveElection = async (e) => {
+    const fetchActiveElection = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:5000/getActiveElection",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setActiveElection(response.data);
+        console.log("Fetching active election..."); // ✅ Debug log
+
+        const response = await fetch("https://byte-vote.vercel.app/api/getActiveElection", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log("Response status:", response.status); // ✅ Log response status
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch active election: ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log("Active election data:", data); // ✅ Log fetched data
+        setActiveElection(data);
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching active election:", error);
       }
     };
+
     fetchActiveElection();
     const interval = setInterval(fetchActiveElection, 5000);
 
     return () => clearInterval(interval);
-  }, [token]);
-  //fetch votes
+}, [token]);
+
+  // Fetch Votes
   useEffect(() => {
     const fetchVotes = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/getVoteCounts", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setVoteData(response.data); // Ensure API returns data in expected format
+        const response = await fetch(
+          "https://byte-vote.vercel.app/api/getVoteCounts",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch vote counts");
+
+        const data = await response.json();
+        setVoteData(data);
       } catch (error) {
         console.error("Error fetching vote counts:", error);
       }
@@ -76,6 +96,7 @@ function Home() {
 
     fetchVotes();
     const interval = setInterval(fetchVotes, 5000);
+
     return () => clearInterval(interval);
   }, [token]);
 
@@ -87,7 +108,7 @@ function Home() {
           <div className="bg-amber-50 sm:w-200 md:w-200 xl:w-200 lg:w-200  rounded-2xl p-4 flex flex-row justify-center items-center shadow">
             <div>
               <img
-                src={"http://localhost:5000/public/userprofile/" + avatar}
+                src={"https://byte-vote.vercel.app/public/userprofile/" + avatar}
                 alt=""
                 className="w-25 h-25 rounded-full border-3 border-amber-500"
               />
@@ -101,32 +122,40 @@ function Home() {
         </div>
 
         <div className="">
-        {activeElection.length > 0 && (
-          <div ref={scrollRef} className="graph-wrapper flex flex-row lg:justify-center w-full overflow-x-auto mt-6 space-x-6">
-            {voteData.length > 0 ? (
-              voteData.map((position) => (
-                <div className="min-w-[350px]" key={position.position_id}>
-                  <h2 className="text-xl text-center font-semibold text-gray-700 mb-3">
-                    {position.position_name}
-                  </h2>
+          {activeElection.length > 0 && (
+            <div
+              ref={scrollRef}
+              className="graph-wrapper flex flex-row lg:justify-center w-full overflow-x-auto mt-6 space-x-6"
+            >
+              {voteData.length > 0 ? (
+                voteData.map((position) => (
+                  <div className="min-w-[350px]" key={position.position_id}>
+                    <h2 className="text-xl text-center font-semibold text-gray-700 mb-3">
+                      {position.position_name}
+                    </h2>
 
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={position.candidates} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="candidate_name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="votes" fill="rgba(40, 67, 245, 1)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ))
-            ) : (
-              <h2 className={clsx("text-3xl text-center w-full",)}>No vote data available</h2>
-            )}
-          </div>
-        )}
-        
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart
+                        data={position.candidates}
+                        margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="candidate_name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="votes" fill="rgba(40, 67, 245, 1)" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ))
+              ) : (
+                <h2 className={clsx("text-3xl text-center w-full")}>
+                  No vote data available
+                </h2>
+              )}
+            </div>
+          )}
+
           <div className="available-election flex justify-center item-center  w-full p-1">
             <div className="w-full bg-amber-50 rounded-sm sm:w-150">
               <div>
@@ -140,23 +169,31 @@ function Home() {
                         {" "}
                         {/* Ensure each element has a unique key */}
                         <h2 className="text-[20px] text-center">{"Title:"}</h2>
-                        <h3 className="text-[20px] text-center"> {active.title} </h3>
-                        <h2 className="text-[20px] text-center">{"Description:"}</h2>
+                        <h3 className="text-[20px] text-center">
+                          {" "}
+                          {active.title}{" "}
+                        </h3>
+                        <h2 className="text-[20px] text-center">
+                          {"Description:"}
+                        </h2>
                         <h3 className="text-[20px] text-center break-all">
                           {active.description}
                         </h3>
-                        <h2 className="text-[20px] text-center">{"End Date:"}</h2>
-                        <h3 className="text-[20px] text-center"> {active.end_date} </h3>
-
+                        <h2 className="text-[20px] text-center">
+                          {"End Date:"}
+                        </h2>
+                        <h3 className="text-[20px] text-center">
+                          {" "}
+                          {active.end_date}{" "}
+                        </h3>
                         <div className="flex justify-center items-center">
                           <button
-                          className="p-2 w-30 mt-10 bg-amber-500 rounded-2xl text-white text-xl hover:bg-amber-600"
-                          onClick={() => navigate("/votingpage")}
-                        >
-                          Vote now
-                        </button>
+                            className="p-2 w-30 mt-10 bg-amber-500 rounded-2xl text-white text-xl hover:bg-amber-600"
+                            onClick={() => navigate("/votingpage")}
+                          >
+                            Vote now
+                          </button>
                         </div>
-                        
                       </div>
                     ))
                   ) : (

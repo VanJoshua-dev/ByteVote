@@ -7,88 +7,108 @@ function ElectionForm(getToken) {
   const [electionEnd, setElectionEnd] = useState();
   const [electionStart, setElectionStart] = useState("Active");
   const [electionID, setElectionID] = useState(null);
-  
+
   //setElection data
   const [election, setElection] = useState([]);
   const handleCreate = async (e) => {
     e.preventDefault();
+
     try {
       const token = getToken.token;
-      const response = await axios.post(
-        "http://localhost:5000/createElection",
-        {
-          title: electionTitle,
-          desc: electionDesc,
-          endDate: electionEnd,
+
+      const response = await fetch("https://byte-vote.vercel.app/api/createElection", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      console.log(response.data);
-      alert("Election Created Successfully");
-    } catch (error) {
-      console.error(error);
-      alert("Failed to Create Election");
-    } finally {
+        body: JSON.stringify({
+          title: electionTitle.trim(),
+          desc: electionDesc.trim(),
+          endDate: electionEnd,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create election");
+      }
+
+      const data = await response.json();
+      console.log(data);
+      alert("✅ Election Created Successfully");
+
+      // Clear input fields
       setElectionTitle("");
       setElectionDesc("");
-      setElectionEnd(null);
+      setElectionEnd(""); // Use empty string instead of null
+    } catch (error) {
+      console.error("❌ Error creating election:", error);
+      alert("❌ Failed to Create Election");
     }
   };
 
   //hanldle set active
-  const handleUpdateElectionStatus = async (electionId, newStatus, electionTitle, electionDesc) => {
+  const handleUpdateElectionStatus = async (
+    electionId,
+    newStatus,
+    electionTitle,
+    electionDesc
+  ) => {
     try {
-      const token = getToken.token;
-      const response = await axios.patch(
-        "http://localhost:5000/updateStatus",
-        {
-          election_ID: electionId, // FIXED: Pass the correct election ID
-          status: newStatus,
-          title: electionTitle,
-          desc: electionDesc, // FIXED: Pass the correct election description
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const token = getToken.token; // Ensure getToken is correctly retrieving the token
 
-      if (response.data.message) {
+      const response = await fetch("https://byte-vote.vercel.app/api/updateStatus", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          election_ID: electionId, // Ensure correct ID is passed
+          status: newStatus,
+          title: electionTitle.trim(), // Trim to remove extra spaces
+          desc: electionDesc.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
         alert(`Election set to ${newStatus} successfully!`);
-        // Refresh election data
+        // Refresh election data (you might need a function for this)
       } else {
-        alert("Failed to update election status.");
+        alert(data.error || "Failed to update election status.");
       }
     } catch (error) {
-      console.error("Error updating election:", error);
-      alert("Something went wrong.");
+      console.error("❌ Error updating election:", error);
+      alert("❌ Something went wrong.");
     }
   };
 
   //fetch election
   useEffect(() => {
     const fetchElection = async () => {
-      try {
-        const response = await axios.get("http://localhost:5000/getElection");
-        setElection(response.data);
-      } catch (error) {
-        console.error(error);
-      }
+        try {
+            const response = await fetch("https://byte-vote.vercel.app/api/getElection");
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch elections");
+            }
+
+            const data = await response.json();
+            setElection(data);
+        } catch (error) {
+            console.error("❌ Error fetching elections:", error);
+        }
     };
+
     fetchElection();
     const interval = setInterval(fetchElection, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+}, []);
   //fetching votes
-  
+
   return (
     <div className="grid grid-cols-5 grid-rows-6 gap-1 p-5  rounded-t-md">
       <div className="col-span-5">
@@ -182,7 +202,12 @@ function ElectionForm(getToken) {
                 <button
                   className="bg-red-500 text-white mt-5 p-1 rounded w-30 hover:bg-red-800"
                   onClick={() =>
-                    handleUpdateElectionStatus(elections.election_id, "ended", elections.title, elections.description)
+                    handleUpdateElectionStatus(
+                      elections.election_id,
+                      "ended",
+                      elections.title,
+                      elections.description
+                    )
                   }
                 >
                   Close Election

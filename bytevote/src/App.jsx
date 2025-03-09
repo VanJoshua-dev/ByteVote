@@ -24,6 +24,7 @@ import ElectionPage from './components/ElectionPage';
 import Unautorized from './components/Unauthorized';
 import Middleware from './components/Middleware';
 import VotingPage from './components/VotingPage';
+import DebugPage from './components/DebugPage';
 function App() {
   
   return (
@@ -104,10 +105,13 @@ function App() {
 
         {/* handle voting page */}
         <Route path="/votingpage" element={
-          // <Middleware requiredRole={"voter"}>
-             
-          // </Middleware>
-          <VotingPage />
+          <Middleware requiredRole={"voter"}>
+             <VotingPage />
+          </Middleware>
+          
+        } />
+        <Route path="/debugPage" element={
+            <DebugPage />
         } />
         {/* handle not existing page page */}
         <Route path="*" element={<NotFound />} />

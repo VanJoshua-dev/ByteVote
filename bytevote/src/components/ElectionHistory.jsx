@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef} from "react";
 import { BrowserRouter as Routes, Route } from "react-router-dom";
 import axios from "axios";
 //components
@@ -7,32 +7,48 @@ import Header from "./Header";
 import BreadCrumb from "./BreadCrumb";
 const ElectionHistory = () => {
   const [history, setHistory] = useState([]);
-
+  const intervalRef = useRef(null); // Keep track of interval
   const userId = localStorage.getItem("user_id");
   const role = localStorage.getItem("role");
   const username = localStorage.getItem("user_name");
-  console.log(userId);
-  console.log(role);
-  console.log(username);
   useEffect(() => {
-    
-    const fetchHistory = async (e) => {
-      try{
-        const response = await axios.get("http://localhost:5000/getHistory", {
-          headers: { Authorization: `Bearer ${userId}` },
-        })
-        setHistory(response.data);
-      }catch(e){
-        console.error("Error fetching history: ", e);
-        setHistory([]);
-      }
-      
-    }
-    fetchHistory();
-    const interval = setInterval(fetchHistory, 5000);
+    const fetchHistory = async () => {
+      try {
+        const token = userId; // Ensure this is a proper token
+        if (!token) {
+          console.error("❌ No token found.");
+          return;
+        }
 
-    return () => clearInterval(interval);
-  }, [])
+        const response = await fetch("https://byte-vote.vercel.app/api/getHistory", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch history.");
+        }
+
+        const data = await response.json();
+        setHistory(data);
+      } catch (e) {
+        console.error("❌ Error fetching history:", e);
+        setHistory([]); // Ensure empty array on failure
+      }
+    };
+
+    // Fetch immediately
+    fetchHistory();
+
+    // Clear any existing interval to avoid duplicate calls
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    // Set interval to refresh every 5 seconds
+    intervalRef.current = setInterval(fetchHistory, 5000);
+
+    return () => clearInterval(intervalRef.current); // Cleanup interval
+  }, [userId]);
   return (
     <div className="">
       <div className="headerContainer p-2 bg-orange-400">

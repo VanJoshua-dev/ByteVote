@@ -45,19 +45,27 @@ function VoterTable(getToken) {
     const fetchVoters = async () => {
       try {
         const token = getToken.token; // Retrieve token
-        console.log("Token: " + token);
-
-        const response = await axios.get("http://localhost:5000/getVoters", {
+        console.log("Fetching voters...");
+        
+        const response = await axios.get("https://byte-vote.vercel.app/api/getVoters", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
-        setVoters(response.data || []);
-        setFilteredVoters(response.data || []); // Set filtered voters initially
+  
+        console.log("Voters Data:", response.data); // 🔍 Debugging
+  
+        if (Array.isArray(response.data.voters)) { // ✅ Ensure response is an array
+          setVoters(response.data.voters);
+          setFilteredVoters(response.data.voters);
+        } else {
+          console.error("API returned non-array data:", response.data);
+          setVoters([]); // Fallback to empty array
+        }
       } catch (err) {
-        setError(err.response ? err.response.data : err.message);
+        console.error("Error fetching voters:", err);
+        setVoters([]); // Prevent filter errors
       }
     };
-
+  
     fetchVoters();
     const interval = setInterval(fetchVoters, 5000);
     return () => clearInterval(interval);
@@ -83,7 +91,7 @@ function VoterTable(getToken) {
     try {
       const token = getToken.token; // Get token for authentication
       const response = await axios.post(
-        "http://localhost:5000/addVoter",
+        "https://byte-vote.vercel.app/api/addVoter",
         formData,
         {
           headers: {
@@ -113,71 +121,69 @@ function VoterTable(getToken) {
     }
   };
   const handleEdit = async (e) => {
-    e.preventDefault(); // Prevent form from refreshing the page
-
-    try {
-      const token = getToken.token; // Get token for authentication
-      const response = await axios.patch(
-        "http://localhost:5000/editVoter",
-        {
-          voter_id: editVoter.voter_id, // Ensure voter_id is included
-          new_Firstname: editVoter.firstname,
-          new_Lastname: editVoter.lastname,
-          newLRN: editVoter.lrn,
-          newGender: editVoter.gender,
-          newUsername: editVoter.username,
-          newPassword: editVoter.password || undefined, // Optional password update
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      setEditModal(false);
-      // Close modal after success
-      setInterval(() => {
-        setEditSuccess(false);
-      }, 2000);
-      setEditSuccess(true); // Show success message after successful submission
-    } catch (error) {
-      setInterval(() => {
-        setEditFailed(false);
-      }, 2000);
-      setEditFailed(true);
-      console.error(
-        "Error updating voter:",
-        error.response?.data || error.message
-      );
-    }
-  };
-
-  const handleDelete = async (e) => {
     e.preventDefault();
-    try {
-      const token = getToken.token; // Ensure this correctly fetches the token
-  
-      const response = await axios.delete("http://localhost:5000/deleteVoter", {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        data: { voterID: deleteVoter.voter_id }, // ✅ Include data inside "data" field
-      })
-      setDeleteModal(false);
-      setInterval(() => {
-        setDelSuccess(false);
-      }, 2000)
-      setDelSuccess(true); 
-    } catch (error) {
-        setInterval(() => {
-            setDelFailed(false);
-          }, 2000)
-          setDelFailed(true);
-      console.error("Error deleting voter:", error.response?.data || error.message);
+    
+    if (!editVoter || !editVoter.voter_id) {
+        console.error("No voter selected for editing");
+        return;
     }
-  };
+
+    try {
+        const token = localStorage.getItem("user_id"); // Ensure correct key
+
+        const response = await fetch("https://byte-vote.vercel.app/api/editVoter", {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                voter_id: editVoter.voter_id,
+                new_Firstname: editVoter.firstname,
+                new_Lastname: editVoter.lastname,
+                newLRN: editVoter.lrn,
+                newGender: editVoter.gender,
+                newUsername: editVoter.username,
+                newPassword: editVoter.password || undefined,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Voter updated successfully:", data);
+        setEditModal(false);
+        setEditSuccess(true);
+        setTimeout(() => setEditSuccess(false), 2000);
+
+    } catch (error) {
+        setEditFailed(true);
+        setTimeout(() => setEditFailed(false), 2000);
+        console.error("Error updating voter:", error.message);
+    }
+};
+
+const handleDelete = async (e) => {
+  e.preventDefault();
+  try {
+      const token = localStorage.getItem("user_id");
+
+      await axios.delete(`https://byte-vote.vercel.app/api/deleteVoter/${deleteVoter.voter_id}`, { // ✅ Use URL param
+          headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setDeleteModal(false);
+      setDelSuccess(true);
+      setTimeout(() => setDelSuccess(false), 2000); // ✅ Use setTimeout instead of setInterval
+
+  } catch (error) {
+      setDelFailed(true);
+      setTimeout(() => setDelFailed(false), 2000);
+      console.error("Error deleting voter:", error.response?.data || error.message);
+  }
+};
   return (
     <div className=" h-139">
       {/* Success modal */}
@@ -713,7 +719,7 @@ function VoterTable(getToken) {
                   </td>
                   <td className="px-6 py-4">
                     <img
-                      src={"http://localhost:5000/public/userprofile/" + voter.avatar}
+                      src={"https://byte-vote.vercel.app/public/userprofile/" + voter.avatar}
                       alt="Avatar"
                       className="w-10 h-10 rounded-full"
                     />

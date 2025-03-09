@@ -21,32 +21,33 @@ const Stats = (getToken) => {
   //fetch data from server
   useEffect(() => {
     const fetchMultipleTables = async () => {
-      try {
-        const token = getToken.token; // Retrieve token
-        console.log("Token: " + token);
-        // Fetch data in parallel
-        const [votersRes, votesRes, positionRes, candidatesRes] = await Promise.all([
-          axios.get("http://localhost:5000/adminDashboard?data=voters", { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get("http://localhost:5000/adminDashboard?data=votedVoters", { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get("http://localhost:5000/adminDashboard?data=positions", { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get("http://localhost:5000/adminDashboard?data=candidates", { headers: { Authorization: `Bearer ${token}` } })
-        ]);
+        try {
+            const token = getToken.token; // Ensure correct token retrieval
 
-        // Update state
-        setVoters(votersRes.data[0].count);
-        setVoted(votesRes.data[0].count);
-        setPosition(positionRes.data[0].count);
-        setCandidate(candidatesRes.data[0].count);
-      } catch (err) {
-        setError(err.response ? err.response.data : err.message);
-      }
+            // Fetch data in parallel using `fetch`
+            const urls = ["voters", "votedVoters", "positions", "candidates"].map(
+                (type) => fetch(`https://byte-vote.vercel.app/api/adminDashboard?data=${type}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }).then((res) => res.json())
+            );
+
+            const [votersRes, votesRes, positionRes, candidatesRes] = await Promise.all(urls);
+
+            // ✅ Corrected data extraction
+            setVoters(votersRes.count);
+            setVoted(votesRes.count);
+            setPosition(positionRes.count);
+            setCandidate(candidatesRes.count);
+        } catch (err) {
+            setError(err.message || "Error fetching data");
+        }
     };
 
     fetchMultipleTables();
     const interval = setInterval(fetchMultipleTables, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+}, [token]);
 
 
 if(error){

@@ -11,77 +11,91 @@ import {
 import axios from "axios";
 import clsx from "clsx";
 const VotesTally = (getToken) => {
-  const token = getToken.token;
+  const token = getToken.token; // ✅ Ensure getToken exists
+
   const [data, setData] = useState({});
   const [voteData, setVoteData] = useState([]);
   const [activeElection, setActiveElection] = useState([]);
   const scrollRef = useRef(null);
+
   useEffect(() => {
     const fetchVotes = async () => {
       try {
-        const response = await fetch("http://localhost:5000/voteTally");
+        const response = await fetch("https://byte-vote.vercel.app/voteTally");
+        if (!response.ok) throw new Error("Failed to fetch votes");
+
         const result = await response.json();
-        setData(result); // Store grouped results
+        setData(result); // ✅ Ensure response is correctly structured
       } catch (error) {
         console.error("Error fetching votes:", error);
       }
     };
 
-    fetchVotes();
+    fetchVotes(); // Fetch immediately
+    const interval = setInterval(fetchVotes, 5000); // Fetch every 5s
+
+    return () => clearInterval(interval); // ✅ Cleanup interval
   }, []);
+
   useEffect(() => {
-    const fetchActiveElection = async (e) => {
+    const fetchActiveElection = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:5000/getActiveElection",
+        const response = await fetch(
+          "https://byte-vote.vercel.app/getActiveElection",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        setActiveElection(response.data);
+        if (!response.ok) throw new Error("Failed to fetch active election");
+
+        const data = await response.json();
+        setActiveElection(data);
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching active election:", error);
       }
     };
+
     fetchActiveElection();
     const interval = setInterval(fetchActiveElection, 5000);
 
     return () => clearInterval(interval);
   }, [token]);
+
   useEffect(() => {
-    const fetchVotes = async () => {
+    const fetchVoteCounts = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:5000/getVoteCounts",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setVoteData(response.data); // Ensure API returns data in expected format
+        const response = await fetch("https://byte-vote.vercel.app/api/getVoteCounts", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Failed to fetch vote counts");
+
+        const data = await response.json();
+        setVoteData(data);
       } catch (error) {
         console.error("Error fetching vote counts:", error);
       }
     };
 
-    fetchVotes();
-    const interval = setInterval(fetchVotes, 5000);
+    fetchVoteCounts();
+    const interval = setInterval(fetchVoteCounts, 5000);
+
     return () => clearInterval(interval);
   }, [token]);
 
   useEffect(() => {
-      const scrollContainer = scrollRef.current;
-      if (!scrollContainer) return;
-  
-      const handleWheel = (e) => {
-        if (e.deltaY !== 0) {
-          e.preventDefault();
-          scrollContainer.scrollLeft += e.deltaY * 2; // Adjust speed if needed
-        }
-      };
-  
-      scrollContainer.addEventListener("wheel", handleWheel);
-      return () => scrollContainer.removeEventListener("wheel", handleWheel);
-    }, []);
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    const handleWheel = (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        scrollContainer.scrollLeft += e.deltaY * 2; // Adjust speed if needed
+      }
+    };
+
+    scrollContainer.addEventListener("wheel", handleWheel);
+    return () => scrollContainer.removeEventListener("wheel", handleWheel);
+  }, []);
 
   return (
     <div>

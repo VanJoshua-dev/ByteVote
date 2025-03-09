@@ -27,40 +27,44 @@ const LoginForm = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
-
+  
     try {
       // ✅ Clear old session before login
       localStorage.removeItem("user_id");
       localStorage.removeItem("role");
       localStorage.removeItem("user_name");
       localStorage.removeItem("avatar");
-
-      const response = await fetch(`${API_URL}/api/login`, {
+  
+      const response = await fetch("https://byte-vote.vercel.app/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-
-      const data = await response.json();
-
+  
+      // ✅ Handle cases where the backend response is not JSON
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        console.error("❌ JSON Parsing Error:", error);
+        setError("Something went wrong. Please try again.");
+        return;
+      }
+  
       if (!response.ok) {
         setError(data.error || "Invalid login credentials");
         return;
       }
-
+  
       // ✅ Store user details in localStorage
       localStorage.setItem("user_id", data.token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("user_name", data.user);
-      localStorage.setItem("avatar", data.avatar);
-      localStorage.setItem("voterID", data.voterID);
-
-      // ✅ Debugging logs
-      console.log("User ID:", localStorage.getItem("user_id"));
-      console.log("Role:", localStorage.getItem("role"));
-
+      localStorage.setItem("avatar", data.avatar || ""); // Handle undefined avatar
+      localStorage.setItem("voterID", data.voterID || ""); // Handle undefined voterID
+  
       alert("✅ Login successful!");
-
+  
       // ✅ Redirect based on role
       if (data.role === "admin") {
         navigate("/adminDashboard");
@@ -68,9 +72,11 @@ const LoginForm = () => {
         navigate("/dashboard");
       }
     } catch (error) {
-      setError("Something went wrong. Please try again. " + error.message);
+      console.error("❌ Fetch Error:", error);
+      setError("Something went wrong. Please try again.");
     }
   };
+  
 
 
   return (
@@ -127,7 +133,7 @@ const LoginForm = () => {
           <button className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition">Login</button>
         </form>
         <div className="mt-4 text-center text-sm text-gray-600">
-          <Link to="/forgot-password" className="text-blue-500 hover:underline">Forgot Password?</Link>
+          {/* <Link to="/forgot-password" className="text-blue-500 hover:underline">Forgot Password?</Link> */}
         </div>
         <div className="mt-4 text-center text-sm">
           <p>Don't have an account? <Link to="/signup" className="text-blue-500 hover:underline">Sign Up</Link></p>

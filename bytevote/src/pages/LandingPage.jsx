@@ -1,6 +1,6 @@
-import React from "react";
+import React, {useEffect} from "react";
 //dom routing
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, BrowserRouter } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, BrowserRouter, useNavigate } from "react-router-dom";
 //images
 import byteicon from "../assets/byte-icon.png";
 import loyolaLogo from "../assets/loyola-shs-logo.png";
@@ -9,6 +9,15 @@ import trojanICT from "../assets/trojan-ICT.png";
 
 
 function LandingPage() {
+  const navigate = useNavigate();
+  useEffect(() => {
+      const userRole = localStorage.getItem("role");
+      if (userRole === "admin") {
+        navigate("/adminDashboard");
+      } else if (userRole === "voter") {
+        navigate("/dashboard");
+      }
+    }, [navigate]);
   return (
     <div className="ladingPageContainer grid  grid-cols-5 grid-rows-5 gap-1 h-screen">
       <div className="imagesContainer col-span-5 flex p-4 h-24 justify-between">

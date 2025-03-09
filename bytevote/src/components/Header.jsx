@@ -6,7 +6,7 @@ import byteicon from "../assets/byte-icon.png";
 import loyolaLogo from "../assets/loyola-shs-logo.png";
 import ByteLogo from "../assets/Byte-net-logo.png";
 import trojanICT from "../assets/trojan-ICT.png";
-import sampleprofile from "../assets/userprofile/sampleProfile.png";
+import Admin from "../assets/userprofile/default_profile-admin.png";
 //icons
 import { LogOut } from "lucide-react";
 function Header(header) {
@@ -39,7 +39,7 @@ function Header(header) {
         <div className="gap-2 flex h-20 p- justify-center items-center">
         <div>
           <img
-            src={sampleprofile}
+            src={Admin}
             alt=""
             className="w-16 h-16 rounded-full border-amber-100 border-3"
             onClick={() => navigate("/profile")}

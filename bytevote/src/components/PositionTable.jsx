@@ -8,7 +8,7 @@ import clsx from "clsx";
 import { BsExclamationCircle } from "react-icons/bs";
 import axios from "axios";
 function Positiontable(getToken) {
-    const [positionName, setPositionName] = useState("");
+  const [positionName, setPositionName] = useState("");
   const [showModal, setShowModal] = useState(false); //handle add modal
   const [editModal, setEditModal] = useState(false); //handle edit modal
   const [deleteModal, setDeleteModal] = useState(false); //handle delete modal
@@ -22,24 +22,31 @@ function Positiontable(getToken) {
   useEffect(() => {
     const filteredPositions = async () => {
       try {
-        const token = getToken.token; // Retrieve token
-        console.log("Token: " + token);
-        const response = await axios.get("http://localhost:5000/getPositions", {
+        const token = getToken.token;
+        const response = await fetch("https://byte-vote.vercel.app/api/getPositions", {
+          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        setPositions(response.data);
-        setFilteredPositions(response.data);
+  
+        if (!response.ok) {
+          throw new Error("Failed to fetch positions");
+        }
+  
+        const data = await response.json();
+        setPositions(data);
+        setFilteredPositions(data);
       } catch (e) {
         console.error("Error fetching positions: ", e);
       }
     };
+  
     filteredPositions();
     const interval = setInterval(filteredPositions, 5000);
     return () => clearInterval(interval);
   }, [getToken]);
-
+  
   useEffect(() => {
     setFilteredPositions(
       positions.filter((position) =>
@@ -47,80 +54,87 @@ function Positiontable(getToken) {
       )
     );
   }, [search, positions]);
-
-  //hadle edit
+  
+  // Handle Edit
   const handleEdit = async (e) => {
     e.preventDefault();
     try {
       const token = getToken.token;
-      const response = await axios.patch(
-        "http://localhost:5000/editPosition",
-        {
-          positionID: editPosition.position_id, // Ensure voter_id is included
-          newPosName: editPosition.position_name, // Ensure
-          // Optional password update
+      const response = await fetch("https://byte-vote.vercel.app/api/editPosition", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+        body: JSON.stringify({
+          positionID: editPosition.position_id,
+          newPosName: editPosition.position_name,
+        }),
+      });
+  
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error updating position");
+  
       alert("✅ Update Successful");
       setEditModal(false);
+      window.location.reload();
     } catch (e) {
       alert(e.message);
       console.error("Error editing position: ", e);
     }
   };
-
-  //handle delete
+  
+  // Handle Delete
   const handleDelete = async (e) => {
     e.preventDefault();
     try {
       const token = getToken.token;
-      const response = await axios.delete(
-        "http://localhost:5000/deletePosition", // Use DELETE method
-        {
-          data: {
-            positionID: delPosition.position_id,
-          },
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch("https://byte-vote.vercel.app/api/deletePosition", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ positionID: delPosition.position_id }),
+      });
+  
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error deleting position");
+  
       alert("✅ Delete Successful");
       setDeleteModal(false);
+      window.location.reload();
     } catch (e) {
       alert(e.message);
-      console.error("Error Deleting position: ", e);
+      console.error("Error deleting position: ", e);
     }
   };
-  //handle add
+  
+  // Handle Add
   const handleAdd = async (e) => {
     e.preventDefault();
     try {
-        const token = getToken.token;  // Ensure getToken() returns the correct token
-        const response = await axios.post(
-            "http://localhost:5000/addPosition",
-            { positionName: positionName },  // Ensure key matches backend
-            {
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-            }
-        );
-        alert("✅ Add Successful");
-        setShowModal(false);
+      const token = getToken.token;
+      const response = await fetch("https://byte-vote.vercel.app/api/addPosition", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ positionName }),
+      });
+  
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error adding position");
+  
+      alert("✅ Add Successful");
+      setShowModal(false);
+      window.location.reload();
     } catch (e) {
-        alert(e.response?.data?.message || "An error occurred");
-        console.error("Error adding position: ", e);
+      alert(e.message);
+      console.error("Error adding position: ", e);
     }
-};
+  };
   return (
     <div className=" h-auto">
       {/* Add Modal */}
