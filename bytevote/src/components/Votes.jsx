@@ -17,7 +17,7 @@ const Votes = () => {
       </div>
       <div className="dashboardContainer flex ">
         <SideBar />
-        <div className=" flex-1 p-5 ">
+        <div className=" flex-1 p-5">
           <BreadCrumb items={[{ label: "Home", path: "/adminDashboard" }, { label: "Votes" }]} />
           <VotesTable />
         </div>

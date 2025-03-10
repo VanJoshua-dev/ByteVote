@@ -6,7 +6,6 @@ function VotesTable() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const token = localStorage.getItem("token"); // Assuming JWT is stored in localStorage
 
   useEffect(() => {
@@ -30,7 +29,8 @@ function VotesTable() {
 
     fetchVotes();
   }, [token]); // Ensure token is included in dependency array
-
+  console.log(votes);
+  
   const deleteVote = async (voteId) => {
     if (!window.confirm("Are you sure you want to delete this vote?")) return;
 
@@ -46,7 +46,7 @@ function VotesTable() {
       setError("Failed to delete vote.");
     }
   };
-
+  
   const resetVotes = async () => {
     if (
       !window.confirm(
@@ -78,7 +78,7 @@ function VotesTable() {
     if (!search.trim()) return votes; // Prevents unnecessary filtering on empty search
 
     return votes.filter((vote) =>
-      [vote?.candidate_name, vote?.position_name]
+      [vote?.candidate_name, vote?.position_name, vote?.voter_name]
         .filter(Boolean) // Removes undefined/null values
         .some((field) => field.toLowerCase().includes(search.toLowerCase()))
     );
@@ -115,6 +115,7 @@ function VotesTable() {
               <th className="px-6 py-3">Vote ID</th>
               <th className="px-6 py-3">Candidate</th>
               <th className="px-6 py-3">Position</th>
+              <th className="px-6 py-3">Voter</th>
               <th className="px-6 py-3">Vote Time</th>
               <th className="px-6 py-3">Actions</th>
             </tr>
@@ -124,11 +125,12 @@ function VotesTable() {
               filteredVotes.map((vote) => (
                 <tr
                   key={vote.vote_id}
-                  className="border-b dark:border-gray-700"
+                  className="border-b border-gray-700 bg-gray-800"
                 >
                   <td className="px-6 py-4">{vote.vote_id}</td>
                   <td className="px-6 py-4">{vote.candidate_name}</td>
                   <td className="px-6 py-4">{vote.position_name}</td>
+                  <td className="px-6 py-4">{vote.voter_name}</td>
                   <td className="px-6 py-4">
                     {new Date(vote.vote_time).toLocaleString()}
                   </td>

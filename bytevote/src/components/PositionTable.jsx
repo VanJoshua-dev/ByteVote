@@ -140,7 +140,7 @@ function Positiontable(getToken) {
       {/* Add Modal */}
       <div
         className={clsx(
-          "fixed z-50 w-fit bg-white top-5  left-85 rounded-2xl  p-3",
+          "fixed z-50 w-fit bg-white top-5  left-85 rounded-2xl shadow  p-3",
           { hidden: !showModal }
         )}
       >
@@ -188,7 +188,7 @@ function Positiontable(getToken) {
       {/* Edit modal */}
       <div
         className={clsx(
-          "fixed z-50 w-fit bg-white top-5  left-85 rounded-2xl  p-3",
+          "fixed z-50 w-fit bg-white top-5  left-85 rounded-2xl shadow  p-3",
           { hidden: !editModal }
         )}
       >
@@ -247,7 +247,7 @@ function Positiontable(getToken) {
       {/* delete modal */}
       <div
         className={clsx(
-          "fixed z-50 p-2 left-150 flex flex-col justify-center items-center bg-white rounded-2xl",
+          "fixed z-50 p-2 left-150 flex flex-col justify-center items-center shadow bg-white rounded-2xl",
           { hidden: !deleteModal }
         )}
       >

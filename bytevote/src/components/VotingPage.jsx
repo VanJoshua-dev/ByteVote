@@ -14,7 +14,7 @@ function VotingPage() {
   const role = localStorage.getItem('role');
   const id = localStorage.getItem('voterID');
   const username = localStorage.getItem('user_name');
-
+  console.log("voter ID: " ,id);
   // Fetch candidates by position
   useEffect(() => {
     const fetchCandidates = async () => {
@@ -44,33 +44,36 @@ function VotingPage() {
   // Handle vote submission
   const handleSubmitVote = async () => {
     if (Object.keys(selectedVotes).length === 0) {
-        alert('Please select at least one candidate before submitting.');
+        alert("Please select at least one candidate before submitting.");
         return;
     }
 
+    const id = localStorage.getItem("voterID"); // Ensure id is retrieved here
+    console.log("Voter ID in frontend:", id); // Debugging
+
     const votes = Object.entries(selectedVotes).map(([positionId, candidateId]) => ({
-        voter_id: id, // User's ID from localStorage
         candidate_id: candidateId,
-        position_id: positionId
+        position_id: positionId,
     }));
 
     try {
-        const response = await fetch('https://byte-vote.vercel.app/api/electionVote', {
-            method: 'POST',
+        const response = await fetch("https://byte-vote.vercel.app/api/electionVote", {
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ votes })
+            body: JSON.stringify({ voter_id: id, votes }), // ✅ Now sending voter_id properly
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || 'Error submitting vote');
+            throw new Error(data.message || "Error submitting vote");
         }
 
-        alert('Vote submitted successfully!');
-        navigate('/dashboard'); // Redirect after voting
+        alert("Vote submitted successfully!");
+        navigate("/dashboard"); // Redirect after voting
     } catch (err) {
         console.error(err);
         alert(err.message);

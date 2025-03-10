@@ -21,11 +21,11 @@ const VotesTally = (getToken) => {
   useEffect(() => {
     const fetchVotes = async () => {
       try {
-        const response = await fetch("https://byte-vote.vercel.app/voteTally");
+        const response = await fetch("https://byte-vote.vercel.app/api/voteTally");
         if (!response.ok) throw new Error("Failed to fetch votes");
 
         const result = await response.json();
-        setData(result); // ✅ Ensure response is correctly structured
+        setVoteData(result); // ✅ Ensure response is correctly structured
       } catch (error) {
         console.error("Error fetching votes:", error);
       }
@@ -35,13 +35,13 @@ const VotesTally = (getToken) => {
     const interval = setInterval(fetchVotes, 5000); // Fetch every 5s
 
     return () => clearInterval(interval); // ✅ Cleanup interval
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const fetchActiveElection = async () => {
       try {
         const response = await fetch(
-          "https://byte-vote.vercel.app/getActiveElection",
+          "https://byte-vote.vercel.app/api/getActiveElection",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -61,27 +61,7 @@ const VotesTally = (getToken) => {
     return () => clearInterval(interval);
   }, [token]);
 
-  useEffect(() => {
-    const fetchVoteCounts = async () => {
-      try {
-        const response = await fetch("https://byte-vote.vercel.app/api/getVoteCounts", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch vote counts");
-
-        const data = await response.json();
-        setVoteData(data);
-      } catch (error) {
-        console.error("Error fetching vote counts:", error);
-      }
-    };
-
-    fetchVoteCounts();
-    const interval = setInterval(fetchVoteCounts, 5000);
-
-    return () => clearInterval(interval);
-  }, [token]);
-
+  console.log("this is the data: ", voteData);
   useEffect(() => {
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
@@ -95,14 +75,13 @@ const VotesTally = (getToken) => {
 
     scrollContainer.addEventListener("wheel", handleWheel);
     return () => scrollContainer.removeEventListener("wheel", handleWheel);
-  }, []);
+  }, [token]);
 
   return (
-    <div>
+    <div className="flex flex-wrap">
       {activeElection.length > 0 && (
         <div
-          ref={scrollRef}
-          className="graph-wrapper flex flex-row lg:justify-center w-full overflow-x-auto mt-6 space-x-6"
+         className="flex flex-row flex-wrap justify-center"
         >
           {voteData.length > 0 ? (
             voteData.map((position) => (
@@ -117,10 +96,10 @@ const VotesTally = (getToken) => {
                     margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="candidate_name" />
+                    <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="votes" fill="rgba(40, 67, 245, 1)" />
+                    <Bar dataKey="vote" fill="rgba(40, 67, 245, 1)" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

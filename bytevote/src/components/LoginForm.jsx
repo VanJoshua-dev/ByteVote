@@ -62,7 +62,7 @@ const LoginForm = () => {
       localStorage.setItem("user_name", data.user);
       localStorage.setItem("avatar", data.avatar || ""); // Handle undefined avatar
       localStorage.setItem("voterID", data.voterID || ""); // Handle undefined voterID
-  
+      
       alert("✅ Login successful!");
   
       // ✅ Redirect based on role

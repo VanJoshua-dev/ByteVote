@@ -101,7 +101,7 @@ app.get("/api/test-db", async (req, res) => {
 
 // 🏠 Home Route (Test API)
 app.get('/', (req, res) => {
-    res.send("BYTEVote is working Hello world!!!!");  
+    res.send("BYTEVote is working Hello world!!!!");
 });
 
 
@@ -139,7 +139,7 @@ app.post("/api/login", async (req, res) => {
 
             const token = jwt.sign({ id: voter.voter_id, role: "voter" }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-            return res.json({ message: "Voter login successful", token, role: "voter", id: voter.voter_id, user: voter.username, avatar: voter.avatar});
+            return res.json({ message: "Voter login successful", token, role: "voter", voterID: voter.voter_id, user: voter.username, avatar: voter.avatar });
         }
 
         return res.status(404).json({ error: "User not found" });
@@ -160,11 +160,8 @@ app.get('/api/adminDashboard', verifyToken, isAdmin, async (req, res) => {
             case 'voters':
                 sql = `SELECT COUNT(*) AS count FROM voters`;
                 break;
-            case 'votedVoters':
-                sql = `SELECT COUNT(*) AS count FROM voters WHERE voted = 1`;
-                break;
             case 'votes':
-                sql = `SELECT COUNT(*) AS count FROM votes`;
+                sql = `SELECT COUNT(DISTINCT voter_id) AS count FROM votes;`;
                 break;
             case 'positions':
                 sql = `SELECT COUNT(*) AS count FROM positions`;
@@ -188,63 +185,7 @@ app.get('/api/adminDashboard', verifyToken, isAdmin, async (req, res) => {
     }
 });
 //fetch Vote Counts
-app.get("/api/getVoteCounts", (req, res) => {
-    const sql = `
-        SELECT 
-            p.position_id, 
-            p.position_name, 
-            c.candidate_id, 
-            CONCAT(c.firstname, ' ', c.lastname) AS candidate_name, 
-            COALESCE(COUNT(v.vote_id), 0) AS votes
-        FROM positions p
-        LEFT JOIN candidates c ON p.position_id = c.position_id
-        LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-        GROUP BY p.position_id, p.position_name, c.candidate_id, c.firstname, c.lastname
-        ORDER BY p.position_id, votes DESC;
-    `;
 
-    conn.getConnection((err, connection) => {
-        if (err) {
-            console.error("Error connecting to database:", err);
-            return res.status(500).json({ error: "Database connection failed" });
-        }
-
-        connection.query(sql, (queryErr, results) => {
-            connection.release(); // ✅ Always release the connection
-
-            if (queryErr) {
-                console.error("Error fetching vote counts:", queryErr);
-                return res.status(500).json({ error: "Internal server error" });
-            }
-
-            // ✅ Ensure positions are always included, even if they have no candidates
-            const groupedResults = results.reduce((acc, row) => {
-                let position = acc.find((p) => p.position_id === row.position_id);
-                if (!position) {
-                    position = {
-                        position_id: row.position_id,
-                        position_name: row.position_name,
-                        candidates: [],
-                    };
-                    acc.push(position);
-                }
-
-                // ✅ Ensure candidates are only added if they exist
-                if (row.candidate_id) {
-                    position.candidates.push({
-                        candidate_id: row.candidate_id,
-                        candidate_name: row.candidate_name,
-                        votes: row.votes,
-                    });
-                }
-
-                return acc;
-            }, []);
-
-            res.json(groupedResults);
-        });
-    });
-});
 
 
 //fetch voters
@@ -463,7 +404,7 @@ app.post("/api/addPosition", verifyToken, isAdmin, async (req, res) => {
         res.json({ message: "Position added successfully", id: result.insertId });
     } catch (err) {
         console.error("Error adding position:", err);
-        
+
         if (err.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ message: "Position already exists" });
         }
@@ -532,7 +473,7 @@ app.post("/api/addCandidate", verifyToken, isAdmin, async (req, res) => {
         // Check if the position ID exists before inserting
         const checkPositionSQL = "SELECT * FROM positions WHERE position_id = ?";
         const [positionResult] = await conn.execute(checkPositionSQL, [candidatePosition]);
-        
+
         if (positionResult.length === 0) {
             return res.status(400).json({ message: "Invalid position ID" });
         }
@@ -626,31 +567,36 @@ app.delete("/api/deleteCandidate/:candidateID", verifyToken, isAdmin, async (req
 });
 
 // Fetch Votes (With Optional Search)
-app.get("/api/votes", (req, res) => {
+app.get("/api/votes", async (req, res) => {
+    console.log("🔵 API /api/votes called");
+
     const searchQuery = req.query.search ? `%${req.query.search}%` : "%";
 
     const sql = `
-      SELECT 
-        v.vote_id, 
+    SELECT 
+        v.vote_id,
+        CONCAT(vtr.firstname, ' ', vtr.lastname) AS voter_name, 
         CONCAT(c.firstname, ' ', c.lastname) AS candidate_name, 
         p.position_name, 
         v.vote_time
-      FROM votes v
-      JOIN candidates c ON v.candidate_id = c.candidate_id
-      JOIN positions p ON c.position_id = p.position_id
-      WHERE CONCAT(c.firstname, ' ', c.lastname) LIKE ? OR p.position_name LIKE ?;
-    `;
+    FROM votes v
+    JOIN candidates c ON v.candidate_id = c.candidate_id
+    JOIN positions p ON v.position_id = p.position_id
+    JOIN voters vtr ON v.voter_id = vtr.voter_id
+    WHERE CONCAT(c.firstname, ' ', c.lastname) LIKE ? 
+       OR p.position_name LIKE ? 
+       OR CONCAT(vtr.firstname, ' ', vtr.lastname) LIKE ?;
+`;
 
-    conn.query(sql, [searchQuery, searchQuery], (err, results) => {
-        if (err) {
-            console.error("Database Error:", err); // Log error for debugging
-            return res.status(500).json({ error: "Internal Server Error" });
-        }
-
-        // Ensure response is always an array
+    try {
+        const [results] = await conn.execute(sql, [searchQuery, searchQuery, searchQuery]);
         res.json(results || []);
-    });
+    } catch (err) {
+        console.error("Database Query Error:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
+
 // Delete a Vote
 app.delete("/api/votes/:id", (req, res) => {
     const voteId = parseInt(req.params.id, 10);
@@ -667,7 +613,7 @@ app.delete("/api/votes/:id", (req, res) => {
             console.error("Database Error:", err); // Log error for debugging
             return res.status(500).json({ error: "Internal Server Error" });
         }
-        
+
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Vote not found" });
         }
@@ -677,28 +623,25 @@ app.delete("/api/votes/:id", (req, res) => {
 });
 
 // Reset Votes (Delete All Votes)
-app.post("/api/votesReset", (req, res) => {
+app.post("/api/votesReset", async (req, res) => {
     const { confirm } = req.body;
 
     if (confirm !== "RESET_VOTES") {
         return res.status(400).json({ error: "Invalid reset confirmation" });
     }
 
-    const sql = "TRUNCATE TABLE votes"; // Faster than DELETE
-
-    conn.query(sql, (err, result) => {
-        if (err) {
-            console.error("Database Error:", err); // Debugging log
-            return res.status(500).json({ error: "Internal Server Error" });
-        }
-
-        res.json({ message: "All votes reset successfully" });
-    });
+    try {
+        const [result] = await conn.execute("DELETE FROM votes");  // Use execute() for promise-based queries
+        res.json({ message: "All votes reset successfully", affectedRows: result.affectedRows });
+    } catch (err) {
+        console.error("Database Error:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 
 //fetch votes in each candidates in each position
-app.get('/api/voteTally', (req, res) => {
+app.get('/api/voteTally', async (req, res) => {
     const query = `
         SELECT 
             p.position_id,
@@ -713,11 +656,8 @@ app.get('/api/voteTally', (req, res) => {
         ORDER BY p.position_id, vote DESC;
     `;
 
-    conn.query(query, (err, results) => {
-        if (err) {
-            console.error("Error fetching vote tally:", err);
-            return res.status(500).json({ error: "Internal server error" });
-        }
+    try {
+        const [results] = await conn.query(query); // ✅ Use `await` with promise-based query
 
         // ✅ Transform results into an array of positions, each with a list of candidates
         const groupedResults = results.reduce((acc, row) => {
@@ -744,9 +684,32 @@ app.get('/api/voteTally', (req, res) => {
         }, []);
 
         res.json(groupedResults);
-    });
+    } catch (error) {
+        console.error("Error fetching vote tally:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
 
+//check if already voted
+
+app.get('/api/checkVote', verifyToken, async (req, res) => {
+    const { voterID } = req.query; // Use query parameters for GET requests
+    console.log("voter id " + voterID);
+    if (!voterID) {
+        return res.status(400).json({ error: "Voter ID is required" });
+    }
+
+    const sql = "SELECT * FROM votes WHERE voter_id = ?";
+    
+    try {
+        const [result] = await conn.execute(sql, [voterID]);
+
+        return res.json({ hasVoted: result.length > 0, votes: result });
+    } catch (err) {
+        console.error("Database Query Error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+    }
+});
 
 
 //creating a election
@@ -804,7 +767,7 @@ app.get("/api/getActiveElection", async (req, res) => {
     const sql = 'SELECT * FROM elections WHERE status = "active"';
     try {
         const [results] = await conn.query(sql); // ✅ Direct query, no `promise()`
-        
+
         if (results.length === 0) {
             return res.status(404).json({ message: "No active election found." });
         }
@@ -915,53 +878,60 @@ app.get('/api/electionCandidates', async (req, res) => {
         res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
-  //handle vote
-  app.post('/api/electionVote', verifyToken, (req, res) => {
-    const { votes } = req.body;
-    const voter_id = req.user.userId; // Extract voter_id from token
+//handle vote
+app.post("/api/electionVote", verifyToken, async (req, res) => {
+    const { votes, voter_id } = req.body;
 
-    if (!votes || votes.length === 0) {
-        return res.status(400).json({ message: 'No votes provided' });
+    console.log("Received votes:", votes);
+    console.log("Extracted voter_id:", voter_id);
+
+    if (!voter_id) {
+        return res.status(400).json({ message: "Missing voter ID" });
     }
 
-    // Start a transaction
-    conn.beginTransaction(async (err) => {
-        if (err) {
-            return res.status(500).json({ message: 'Transaction error', error: err.message });
-        }
+    if (!votes || votes.length === 0) {
+        return res.status(400).json({ message: "No votes provided" });
+    }
 
-        try {
-            const sql = `INSERT INTO votes (voter_id, candidate_id, position_id) VALUES (?, ?, ?)`;
+    const connection = await conn.getConnection();
 
-            for (const vote of votes) {
-                // Prevent duplicate votes for the same position
-                const checkSQL = `SELECT * FROM votes WHERE voter_id = ? AND position_id = ?`;
-                const [existingVote] = await conn.execute(checkSQL, [voter_id, vote.position_id]);
+    try {
+        await connection.beginTransaction();
+        console.log("Transaction started");
 
-                if (existingVote.length > 0) {
-                    throw new Error(`Duplicate vote detected for position ID: ${vote.position_id}`);
-                }
+        const sql = `INSERT INTO votes (voter_id, candidate_id, position_id) VALUES (?, ?, ?)`;
 
-                await conn.execute(sql, [voter_id, vote.candidate_id, vote.position_id]);
+        for (const vote of votes) {
+            console.log(`Processing vote for position ${vote.position_id}`);
+
+            const checkSQL = `SELECT * FROM votes WHERE voter_id = ? AND position_id = ?`;
+            const [existingVote] = await connection.execute(checkSQL, [voter_id, vote.position_id]);
+
+            if (existingVote.length > 0) {
+                console.error(`Duplicate vote detected for position ID: ${vote.position_id}`);
+                throw new Error(`Duplicate vote detected for position ID: ${vote.position_id}`);
             }
 
-            // Commit transaction
-            conn.commit((commitErr) => {
-                if (commitErr) {
-                    throw commitErr;
-                }
-                res.json({ message: 'Vote submitted successfully!' });
-            });
-        } catch (error) {
-            conn.rollback(() => {
-                res.status(500).json({ message: 'Vote submission failed', error: error.message });
-            });
+            await connection.execute(sql, [voter_id, vote.candidate_id, vote.position_id]);
+            console.log(`Vote inserted for position ${vote.position_id}`);
         }
-    });
+
+        await connection.commit();
+        console.log("Transaction committed successfully");
+        res.json({ message: "Vote submitted successfully!" });
+
+    } catch (error) {
+        console.error("Vote submission error:", error);
+        await connection.rollback();
+        res.status(500).json({ message: "Vote submission failed", error: error.message });
+    } finally {
+        connection.release();
+    }
 });
 
 
- 
+
+
 
 
 

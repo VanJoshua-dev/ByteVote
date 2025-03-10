@@ -236,7 +236,7 @@ function CandidateTable(getToken) {
       {/* Add Modal */}
       <div
         className={clsx(
-          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl  p-3",
+          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl shadow  p-3",
           { hidden: !showModal }
         )}
       >
@@ -383,9 +383,9 @@ function CandidateTable(getToken) {
           <div className="mt-2 flex justify-center gap-2">
             <button
               type="submit"
-              className="w-30 px-4 py-2 bg-blue-500  text-white rounded-lg hover:bg-blue-600 transition"
+              className="w-40 px-4 py-2 bg-blue-500  text-white rounded-lg hover:bg-blue-600 transition"
             >
-              Add Voter
+              Add Candidate
             </button>
             <button
               type="button"
@@ -400,7 +400,7 @@ function CandidateTable(getToken) {
       {/* Edit modal */}
       <div
         className={clsx(
-          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl  p-3",
+          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl shadow  p-3",
           { hidden: !editModal }
         )}
       >
@@ -597,7 +597,7 @@ function CandidateTable(getToken) {
       {/* delete modal */}
       <div
         className={clsx(
-          "fixed z-50 p-2 left-150 flex flex-col justify-center items-center bg-white rounded-2xl",
+          "fixed z-50 p-2 left-150 flex flex-col justify-center items-center shadow bg-white rounded-2xl",
           { hidden: !deleteModal }
         )}
       >

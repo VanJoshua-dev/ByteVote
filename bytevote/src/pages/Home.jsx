@@ -18,18 +18,15 @@ function Home() {
   const navigate = useNavigate();
   // User data and functions go here
   const token = localStorage.getItem("user_id");
-  console.log(token);
   const role = localStorage.getItem("role");
   const username = localStorage.getItem("user_name");
   const id = localStorage.getItem("voterID");
   const avatar = localStorage.getItem("avatar");
-  console.log("Avatar: " + avatar);
-  
+  const [voted, setVoted] = useState([]);
   const [activeElection, setActiveElection] = useState([]);
   const [voteData, setVoteData] = useState([]);
   const [none, setNone] = useState(false);
   const scrollRef = useRef(null);
-  console.log(avatar);
   useEffect(() => {
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
@@ -45,14 +42,47 @@ function Home() {
     return () => scrollContainer.removeEventListener("wheel", handleWheel);
   }, []);
 
+  const checkVote = async () => {
+    try {
+      const res = await fetch(
+        `https://byte-vote.vercel.app/api/checkVote?voterID=${id}`,
+        {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to check vote");
+
+      const data = await res.json();
+      console.log("Check if voted: ", data);
+
+      // Update state based on API response
+      setVoted(data.hasVoted); // Boolean indicating if the user has voted
+    } catch (err) {
+      console.error("Error checking vote:", err);
+    }
+  };
+
+  // Run `checkVote` every 5 seconds
+  useEffect(() => {
+    checkVote();
+    const interval = setInterval(checkVote, 5000);
+
+    return () => clearInterval(interval); // Cleanup interval on unmount
+  }, []);
+  console.log("Check if voted: ", voted);
   useEffect(() => {
     const fetchActiveElection = async () => {
       try {
         console.log("Fetching active election..."); // ✅ Debug log
 
-        const response = await fetch("https://byte-vote.vercel.app/api/getActiveElection", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch(
+          "https://byte-vote.vercel.app/api/getActiveElection",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
         console.log("Response status:", response.status); // ✅ Log response status
         if (!response.ok) {
@@ -72,18 +102,15 @@ function Home() {
     const interval = setInterval(fetchActiveElection, 5000);
 
     return () => clearInterval(interval);
-}, [token]);
+  }, [token]);
 
   // Fetch Votes
   useEffect(() => {
     const fetchVotes = async () => {
       try {
-        const response = await fetch(
-          "https://byte-vote.vercel.app/api/getVoteCounts",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const response = await fetch("https://byte-vote.vercel.app/api/voteTally", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         if (!response.ok) throw new Error("Failed to fetch vote counts");
 
@@ -99,7 +126,7 @@ function Home() {
 
     return () => clearInterval(interval);
   }, [token]);
-
+  console.log(voteData);
   return (
     <div className="w-screen h-screen overflow-auto">
       <Userheader />
@@ -125,7 +152,7 @@ function Home() {
           {activeElection.length > 0 && (
             <div
               ref={scrollRef}
-              className="graph-wrapper flex flex-row lg:justify-center w-full overflow-x-auto mt-6 space-x-6"
+              className="graph-wrapper flex flex-row lg:justify-center w-full 2xl:w-screen 2xl:justify-center 2xl:pl-280 overflow-x-auto mt-6 space-x-6"
             >
               {voteData.length > 0 ? (
                 voteData.map((position) => (
@@ -143,7 +170,7 @@ function Home() {
                         <XAxis dataKey="candidate_name" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="votes" fill="rgba(40, 67, 245, 1)" />
+                        <Bar dataKey="vote" fill="rgba(40, 67, 245, 1)" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -164,38 +191,41 @@ function Home() {
                 </h2>
                 <div className="p-2 flex flex-col justify-center items-center">
                   {activeElection.length > 0 ? (
-                    activeElection.map((active) => (
-                      <div key={active.election_id}>
-                        {" "}
-                        {/* Ensure each element has a unique key */}
-                        <h2 className="text-[20px] text-center">{"Title:"}</h2>
-                        <h3 className="text-[20px] text-center">
-                          {" "}
-                          {active.title}{" "}
-                        </h3>
-                        <h2 className="text-[20px] text-center">
-                          {"Description:"}
-                        </h2>
-                        <h3 className="text-[20px] text-center break-all">
-                          {active.description}
-                        </h3>
-                        <h2 className="text-[20px] text-center">
-                          {"End Date:"}
-                        </h2>
-                        <h3 className="text-[20px] text-center">
-                          {" "}
-                          {active.end_date}{" "}
-                        </h3>
-                        <div className="flex justify-center items-center">
-                          <button
-                            className="p-2 w-30 mt-10 bg-amber-500 rounded-2xl text-white text-xl hover:bg-amber-600"
-                            onClick={() => navigate("/votingpage")}
-                          >
-                            Vote now
-                          </button>
+                    voted ? ( // Now correctly using the boolean value
+                      <h2 className="text-[20px] text-center text-gray-500">
+                        You have already voted!
+                      </h2>
+                    ) : (
+                      activeElection.map((active) => (
+                        <div key={active.election_id}>
+                          <h2 className="text-[20px] text-center">Title:</h2>
+                          <h3 className="text-[20px] text-center">
+                            {active.title}
+                          </h3>
+
+                          <h2 className="text-[20px] text-center">
+                            Description:
+                          </h2>
+                          <h3 className="text-[20px] text-center break-all">
+                            {active.description}
+                          </h3>
+
+                          <h2 className="text-[20px] text-center">End Date:</h2>
+                          <h3 className="text-[20px] text-center">
+                            {active.end_date}
+                          </h3>
+
+                          <div className="flex justify-center items-center">
+                            <button
+                              className="p-2 w-30 mt-10 bg-amber-500 rounded-2xl text-white text-xl hover:bg-amber-600"
+                              onClick={() => navigate("/votingpage")}
+                            >
+                              Vote now
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      ))
+                    )
                   ) : (
                     <h2 className="text-[20px] text-center text-gray-500">
                       No active election available

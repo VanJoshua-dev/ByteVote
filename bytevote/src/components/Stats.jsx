@@ -25,7 +25,7 @@ const Stats = (getToken) => {
             const token = getToken.token; // Ensure correct token retrieval
 
             // Fetch data in parallel using `fetch`
-            const urls = ["voters", "votedVoters", "positions", "candidates"].map(
+            const urls = ["voters", "votes", "positions", "candidates"].map(
                 (type) => fetch(`https://byte-vote.vercel.app/api/adminDashboard?data=${type}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }).then((res) => res.json())
@@ -47,7 +47,7 @@ const Stats = (getToken) => {
     const interval = setInterval(fetchMultipleTables, 5000);
 
     return () => clearInterval(interval);
-}, [token]);
+}, []);
 
 
 if(error){
@@ -150,7 +150,7 @@ if(error){
           <button className='flex justify-center items-center gap-1 bg-green-500 p-1 rounded-lg text-white text-2xl' onClick={handlePrint}><PiPrinter  size={30} color='white'/> Print</button>
         </div>
         {/* table tally */}
-        <div className='p-3 shadow-sm h-fit rounded-2xl mt-2 dark:bg-gray-800 dark:border-gray-70' ref={printRef}>
+        <div className='p-3 shadow-sm w-315 h-fit flex-row flex-wrap rounded-2xl mt-2 dark:bg-gray-800 dark:border-gray-70' ref={printRef}>
            <VotesTally token={token} />
         </div>
       </div>

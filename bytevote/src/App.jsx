@@ -24,7 +24,7 @@ import ElectionPage from './components/ElectionPage';
 import Unautorized from './components/Unauthorized';
 import Middleware from './components/Middleware';
 import VotingPage from './components/VotingPage';
-import DebugPage from './components/DebugPage';
+import Thankyou from './components/Thankyou';
 function App() {
   
   return (
@@ -110,8 +110,8 @@ function App() {
           </Middleware>
           
         } />
-        <Route path="/debugPage" element={
-            <DebugPage />
+        <Route path="/tnx" element={
+            <Thankyou />
         } />
         {/* handle not existing page page */}
         <Route path="*" element={<NotFound />} />

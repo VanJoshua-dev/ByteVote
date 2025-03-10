@@ -265,7 +265,7 @@ const handleDelete = async (e) => {
       {/* Add Modal */}
       <div
         className={clsx(
-          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl  p-3",
+          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl shadow  p-3",
           { hidden: !showModal }
         )}
       >
@@ -417,7 +417,7 @@ const handleDelete = async (e) => {
       {/* Edit modal */}
       <div
         className={clsx(
-          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl  p-3",
+          "fixed z-50 w-4xl bg-white top-5  left-85 rounded-2xl shadow  p-3",
           { hidden: !editModal }
         )}
       >
@@ -582,8 +582,8 @@ const handleDelete = async (e) => {
       </div>
       {/* delete modal */}
       <div
-        className={clsx(
-          "fixed z-50 p-2 left-150 flex flex-col justify-center items-center bg-white rounded-2xl",
+        className={clsx(  
+          "fixed z-50 p-2 left-150 flex flex-col justify-center items-center bg-white shadow rounded-2xl",
           { hidden: !deleteModal }
         )}
       >
