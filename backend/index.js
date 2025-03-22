@@ -45,11 +45,11 @@ const serverCa = [fs.readFileSync(sslserverCaPath, "utf8")];
 
 // ✅ Database Connection (Better Handling)
 const conn = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
+    host: '34.92.145.15',
+    user: 'root',
+    password: '7G&xp[G*g*sP5:9n',
+    database: 'db_votingsystem',
+    port: 3306,
     ssl: {
         key: serverKey,
         cert: serverCert,
