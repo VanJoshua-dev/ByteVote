@@ -45,13 +45,11 @@ function VoterTable(getToken) {
     const fetchVoters = async () => {
       try {
         const token = getToken.token; // Retrieve token
-        console.log("Fetching voters...");
         
         const response = await axios.get("https://byte-vote.vercel.app/api/getVoters", {
           headers: { Authorization: `Bearer ${token}` },
         });
   
-        console.log("Voters Data:", response.data); // 🔍 Debugging
   
         if (Array.isArray(response.data.voters)) { // ✅ Ensure response is an array
           setVoters(response.data.voters);
@@ -719,13 +717,13 @@ const handleDelete = async (e) => {
                   </td>
                   <td className="px-6 py-4">
                     <img
-                      src={"https://byte-vote.vercel.app/public/userprofile/" + voter.avatar}
+                      src={"https://byte-vote.vercel.app/public/userprofile/" + voter.image_path}
                       alt="Avatar"
                       className="w-10 h-10 rounded-full"
                     />
                   </td>
                   <td className="px-6 py-4">
-                    {new Date(voter.created_at).toLocaleString()}
+                    {new Date(voter.date_created).toLocaleString()}
                   </td>
                   <td className="px-6 py-4">
                     <button

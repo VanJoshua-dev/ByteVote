@@ -33,17 +33,28 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 // ✅ SSL Certificate for Azure MySQL
-const sslCertPath = path.join(__dirname, "DigiCertGlobalRootCA.crt.pem");
-const serverCa = [fs.readFileSync(sslCertPath, "utf8")];
+//key
+const sslserverKeyPath = path.join(__dirname, "client-key.pem");
+const serverKey = [fs.readFileSync(sslserverKeyPath, "utf8")];
+//cert
+const sslserverCertPath = path.join(__dirname, "client-cert.pem");
+const serverCert = [fs.readFileSync(sslserverCertPath, "utf8")];
+//server
+const sslserverCaPath = path.join(__dirname, "server-ca.pem");
+const serverCa = [fs.readFileSync(sslserverCaPath, "utf8")];
 
 // ✅ Database Connection (Better Handling)
 const conn = mysql.createPool({
-    host: "bytevote.mysql.database.azure.com",
-    user: "bytevote_2025",
-    password: "Bytevote_25",
-    database: "db_votingsystem",
-    port: 3306,
-    ssl: { ca: serverCa }, // ✅ Removed `rejectUnauthorized: true`
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
+    ssl: {
+        key: serverKey,
+        cert: serverCert,
+        ca: serverCa 
+    },
 });
 
 // ✅ Verify Token Middleware
@@ -137,9 +148,9 @@ app.post("/api/login", async (req, res) => {
             const isMatch = await bcrypt.compare(password, voter.password);
             if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
 
-            const token = jwt.sign({ id: voter.voter_id, role: "voter" }, process.env.JWT_SECRET, { expiresIn: "1h" });
+            const token = jwt.sign({ id: voter.voter_id, role: "voter", avatar: voter.image_path }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-            return res.json({ message: "Voter login successful", token, role: "voter", voterID: voter.voter_id, user: voter.username, avatar: voter.avatar });
+            return res.json({ message: "Voter login successful", token, role: "voter", voterID: voter.voter_id, user: voter.username, avatar: voter.image_path });
         }
 
         return res.status(404).json({ error: "User not found" });
@@ -215,7 +226,7 @@ app.post("/api/addVoter", verifyToken, isAdmin, async (req, res) => {
 
     try {
         // Check if LRN already exists
-        const checkLRNSql = "SELECT 1 FROM voters WHERE LRN = ?";
+        const checkLRNSql = "SELECT 1 FROM voters WHERE lrn = ?";
         const [existingVoter] = await conn.execute(checkLRNSql, [LRN]);
 
         if (existingVoter.length > 0) {
@@ -223,16 +234,30 @@ app.post("/api/addVoter", verifyToken, isAdmin, async (req, res) => {
         }
 
         // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
+        const hashedPassword = await bcrypt.hash(password, 12);
+        console.log(hashedPassword);
+        //generate profile based on gender
+        let profilePictureOptions = [];
+        switch (gender.toLowerCase()) {
+            case 'male':
+                profilePictureOptions = ['default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                break;
+            case 'female':
+                profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-f2.jpg'];
+                break;
+            default:
+                profilePictureOptions = ['default_profile-f1.jpg', 'default_profile-2.jpg', 'default_profile-m1.jpg', 'default_profile-m2.jpg'];
+                break;
+        }
+        const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
         // Insert new voter
         const insertSql = `
-            INSERT INTO voters (firstname, lastname, LRN, gender, username, password) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO voters (firstname, lastname, lrn, gender, username, password, image_path) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        const [result] = await conn.execute(insertSql, [firstname, lastname, LRN, gender, username, hashedPassword]);
+        const [result] = await conn.execute(insertSql, [firstname, lastname, LRN, gender, username, hashedPassword, profilePicture]);
 
-        res.status(201).json({ message: "Voter added successfully", id: result.insertId });
+        res.status(201).json({ message: "Voter added successfully", id: result.insertId,});
 
     } catch (error) {
         console.error("Error:", error);
@@ -249,7 +274,7 @@ app.patch('/api/editVoter', verifyToken, isAdmin, async (req, res) => {
 
     try {
         // Check if new LRN already exists for a different voter
-        const checkLRNSql = "SELECT 1 FROM voters WHERE LRN = ? AND voter_id != ?";
+        const checkLRNSql = "SELECT 1 FROM voters WHERE lrn = ? AND voter_id != ?";
         const [existingLRN] = await conn.execute(checkLRNSql, [newLRN, voter_id]);
 
         if (existingLRN.length > 0) {
@@ -262,15 +287,17 @@ app.patch('/api/editVoter', verifyToken, isAdmin, async (req, res) => {
         if (!newPassword) {
             updateSql = `
                 UPDATE voters 
-                SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ? 
+                SET firstname = ?, lastname = ?, lrn = ?, gender = ?, username = ? 
                 WHERE voter_id = ?
             `;
             values = [new_Firstname, new_Lastname, newLRN, newGender, newUsername, voter_id];
         } else {
-            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            const saltrounds = 12;
+            const hashedPassword = await bcrypt.hash(newPassword, saltrounds);
+            console.log(hashedPassword);
             updateSql = `
                 UPDATE voters 
-                SET firstname = ?, lastname = ?, LRN = ?, gender = ?, username = ?, password = ? 
+                SET firstname = ?, lastname = ?, lrn = ?, gender = ?, username = ?, password = ? 
                 WHERE voter_id = ?
             `;
             values = [new_Firstname, new_Lastname, newLRN, newGender, newUsername, hashedPassword, voter_id];
@@ -426,7 +453,7 @@ app.get('/api/getCandidates', verifyToken, isAdmin, async (req, res) => {
                 c.gender, 
                 c.avatar,  
                 p.position_name AS position, 
-                c.credibility, 
+                c.credibilities, 
                 c.platform 
             FROM candidates c 
             JOIN positions p ON c.position_id = p.position_id;
@@ -479,7 +506,7 @@ app.post("/api/addCandidate", verifyToken, isAdmin, async (req, res) => {
         }
 
         // Insert candidate
-        const insertSQL = "INSERT INTO candidates (firstname, lastname, gender, position_id, credibility, platform, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        const insertSQL = "INSERT INTO candidates (firstname, lastname, gender, position_id, credibilities, platform, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)";
         const [result] = await conn.execute(insertSQL, [firstName, lastName, gender, candidatePosition, credibility, platform, profilePicture]);
 
         res.status(201).json({ message: "Candidate added successfully", candidateId: result.insertId });
@@ -522,7 +549,7 @@ app.patch("/api/editCandidate", verifyToken, isAdmin, async (req, res) => {
         // Update candidate
         const updateSQL = `
             UPDATE candidates 
-            SET firstname = ?, lastname = ?, gender = ?, position_id = ?, credibility = ?, platform = ? 
+            SET firstname = ?, lastname = ?, gender = ?, position_id = ?, credibilities = ?, platform = ? 
             WHERE candidate_id = ?
         `;
         const [updateResult] = await conn.execute(updateSQL, [new_FirstName, new_LastName, normalizedGender, new_Position, new_Credibility, new_Platform, candidate_id]);
@@ -840,7 +867,7 @@ app.get('/api/electionCandidates', async (req, res) => {
     const sql = `
       SELECT p.position_id, p.position_name, c.candidate_id, 
              c.firstname, c.lastname, c.gender, c.platform, 
-             c.credibility, c.avatar
+             c.credibilities, c.avatar
       FROM positions p
       LEFT JOIN candidates c ON p.position_id = c.position_id
       ORDER BY p.position_id;
@@ -865,7 +892,7 @@ app.get('/api/electionCandidates', async (req, res) => {
                     name: `${row.firstname} ${row.lastname}`,
                     gender: row.gender,
                     platform: row.platform,
-                    credibility: row.credibility,
+                    credibility: row.credibilities,
                     avatar: row.avatar,
                 });
             }
@@ -960,7 +987,7 @@ app.post('/api/signup', async (req, res) => {
         }
 
         // ✅ Hash password before storing
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         // ✅ Assign a random profile picture based on gender
         let profilePictureOptions = [];
@@ -978,7 +1005,7 @@ app.post('/api/signup', async (req, res) => {
         const profilePicture = profilePictureOptions[Math.floor(Math.random() * profilePictureOptions.length)];
 
         // ✅ Insert user into the database
-        const sql = 'INSERT INTO voters (firstname, lastname, lrn, gender, username, password, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        const sql = 'INSERT INTO voters (firstname, lastname, lrn, gender, username, password, image_path) VALUES (?, ?, ?, ?, ?, ?, ?)';
         await conn.query(sql, [firstname, lastname, lrn, gender, username, hashedPassword, profilePicture]);
 
         // ✅ Success Response

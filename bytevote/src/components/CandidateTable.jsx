@@ -25,7 +25,6 @@ function CandidateTable(getToken) {
           console.warn("Token is missing!");
           return;
         }
-        console.log("Token: " + token);
         
         const response = await fetch("https://byte-vote.vercel.app/api/getPositions", {
           headers: {
