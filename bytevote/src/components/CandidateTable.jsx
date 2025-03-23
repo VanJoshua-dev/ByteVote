@@ -162,7 +162,7 @@ function CandidateTable(getToken) {
         new_LastName: editCandidate.lastname,
         new_Position: editCandidate.position_id,
         new_Gender: editCandidate.gender,
-        new_Credibility: editCandidate.credibility,
+        new_Credibility: editCandidate.credibilities,
         new_Platform: editCandidate.platform,
       };
   
@@ -525,7 +525,7 @@ function CandidateTable(getToken) {
               <textarea
                 type="text"
                 id="newCredibility"
-                value={editCandidate?.credibility || ""}
+                value={editCandidate?.credibilities || ""}
                 onChange={(e) =>
                   setEditCandidate({
                     ...editCandidate,

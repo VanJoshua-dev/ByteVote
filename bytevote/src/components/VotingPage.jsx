@@ -4,7 +4,7 @@ import Userheader from './Userheader';
 import { IoIosArrowBack } from 'react-icons/io';
 import { useNavigate } from 'react-router-dom';
 
-function VotingPage() {
+function VotingPage(electionTitle) {
   const navigate = useNavigate();
   const [positions, setPositions] = useState([]);
   const [selectedVotes, setSelectedVotes] = useState({}); // Stores selected candidate per position
@@ -85,13 +85,13 @@ function VotingPage() {
       <Userheader />
       <div className='pt-2'>
         <div className='p-2 flex justify-between'>
-          <button className='bg-blue-500 text-white text-2xl p-2 flex justify-between items-center rounded-sm' onClick={() => navigate('/dashboard')}>
+          <button className='bg-blue-500 text-white text-2xl p-2 flex justify-between items-center rounded-sm' onClick={() => {navigate('/dashboard'); localStorage.removeItem('title');}}>
             <IoIosArrowBack /> Return to Home
           </button>
           <span className='text-white font-semibold font-sans text-2xl'>{"Voter: "} {username}</span>
         </div>
 
-        <h2 className='text-center text-2xl'>Election Title</h2>
+        <h2 className='text-center text-2xl'>{localStorage.getItem('title')}</h2>
         <div className='ballot-container mt-10 p-2 h-[550px] overflow-y-auto'>
 
           {positions.map(position => (

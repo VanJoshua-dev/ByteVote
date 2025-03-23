@@ -167,7 +167,7 @@ function Home() {
                         margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="candidate_name" />
+                        <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
                         <Bar dataKey="vote" fill="rgba(40, 67, 245, 1)" />
@@ -201,6 +201,7 @@ function Home() {
                           <h2 className="text-[20px] text-center">Title:</h2>
                           <h3 className="text-[20px] text-center">
                             {active.title}
+                            {localStorage.setItem('title', active.title)}
                           </h3>
 
                           <h2 className="text-[20px] text-center">
